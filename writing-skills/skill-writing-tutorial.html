@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writing Claude Skills — A Comprehensive Tutorial</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e28;
+    --border: #252a38;
+    --accent: #5b7fff;
+    --accent2: #c084fc;
+    --accent3: #34d399;
+    --warn: #fb923c;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --code-bg: #090b10;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  .layout { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 24px 0;
+  }
+
+  .sidebar-logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-logo h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .sidebar-logo p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .nav-section {
+    padding: 0 12px;
+    margin-bottom: 6px;
+  }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 8px 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--muted);
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(91,127,255,0.12); color: var(--accent); }
+
+  .nav-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .nav-item.active .nav-dot { background: var(--accent); }
+  .nav-item:hover .nav-dot { background: var(--muted); }
+
+  /* Main */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 48px 56px;
+    max-width: 860px;
+  }
+
+  /* Sections */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* Typography */
+  .section-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    margin: 36px 0 12px;
+  }
+
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 24px 0 8px;
+  }
+
+  p { color: #94a3b8; margin-bottom: 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  strong { color: var(--text); font-weight: 500; }
+
+  /* Lead */
+  .lead {
+    font-size: 17px;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Code */
+  pre, code {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+  }
+
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: #a5f3fc;
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    margin: 16px 0;
+    position: relative;
+  }
+
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #e2e8f0;
+  }
+
+  .code-label {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Syntax coloring */
+  .k { color: #c084fc; } /* keyword/yaml-key */
+  .s { color: #86efac; } /* string */
+  .c { color: #475569; font-style: italic; } /* comment */
+  .kw { color: #7dd3fc; } /* heading */
+  .op { color: var(--warn); } /* operator/special */
+  .fn { color: #f9a8d4; } /* function/section */
+
+  /* Callouts */
+  .callout {
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 20px 0;
+    border-left: 3px solid;
+    font-size: 14px;
+  }
+
+  .callout p { margin-bottom: 8px; font-size: 14px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .callout-title {
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .callout.tip { background: rgba(91,127,255,0.08); border-color: var(--accent); }
+  .callout.tip .callout-title { color: var(--accent); }
+
+  .callout.warn { background: rgba(251,146,60,0.08); border-color: var(--warn); }
+  .callout.warn .callout-title { color: var(--warn); }
+
+  .callout.good { background: rgba(52,211,153,0.08); border-color: var(--accent3); }
+  .callout.good .callout-title { color: var(--accent3); }
+
+  .callout.bad { background: rgba(248,113,113,0.1); border-color: #f87171; }
+  .callout.bad .callout-title { color: #f87171; }
+
+  /* Comparison */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+
+  .compare-box {
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+  }
+
+  .compare-box.good-box { background: rgba(52,211,153,0.07); border: 1px solid rgba(52,211,153,0.2); }
+  .compare-box.bad-box { background: rgba(248,113,113,0.07); border: 1px solid rgba(248,113,113,0.2); }
+
+  .compare-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .good-box .compare-label { color: var(--accent3); }
+  .bad-box .compare-label { color: #f87171; }
+
+  .compare-box pre {
+    margin: 0;
+    padding: 12px;
+    font-size: 12px;
+    background: rgba(0,0,0,0.3);
+    border: none;
+  }
+
+  /* Pill tags */
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin: 2px;
+  }
+
+  .tag-blue { background: rgba(91,127,255,0.15); color: var(--accent); border: 1px solid rgba(91,127,255,0.3); }
+  .tag-purple { background: rgba(192,132,252,0.15); color: var(--accent2); border: 1px solid rgba(192,132,252,0.3); }
+  .tag-green { background: rgba(52,211,153,0.15); color: var(--accent3); border: 1px solid rgba(52,211,153,0.3); }
+
+  /* Steps */
+  .steps { margin: 20px 0; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(91,127,255,0.15);
+    border: 1px solid rgba(91,127,255,0.3);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .step-body h4 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .step-body p { font-size: 14px; color: var(--muted); margin-bottom: 0; }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+
+  th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: #94a3b8;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+  /* Checklist */
+  .checklist { list-style: none; margin: 12px 0; }
+  .checklist li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 5px 0;
+    font-size: 14px;
+    color: #94a3b8;
+  }
+  .checklist li::before {
+    content: '✓';
+    color: var(--accent3);
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.3s ease;
+  }
+
+  /* Next/Prev nav */
+  .page-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text);
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+    max-width: 200px;
+  }
+
+  .nav-btn:hover { border-color: var(--accent); background: rgba(91,127,255,0.05); }
+  .nav-btn.disabled { opacity: 0.3; pointer-events: none; }
+
+  .nav-btn-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .nav-btn-title { font-size: 13px; font-weight: 500; }
+
+  .nav-btn.next { text-align: right; margin-left: auto; }
+
+  /* Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(91,127,255,0.1);
+    border: 1px solid rgba(91,127,255,0.25);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  /* Rails specific */
+  .rails-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 12px 0;
+  }
+
+  .rails-card h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .rails-card p { font-size: 13px; color: var(--muted); margin-bottom: 0; }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h2>Skill Writing</h2>
+      <p>A Comprehensive Tutorial</p>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Foundations</div>
+      <button class="nav-item active" onclick="go(0)"><span class="nav-dot"></span>What is a Skill?</button>
+      <button class="nav-item" onclick="go(1)"><span class="nav-dot"></span>Anatomy of SKILL.md</button>
+      <button class="nav-item" onclick="go(2)"><span class="nav-dot"></span>The Description Field</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Writing Great Skills</div>
+      <button class="nav-item" onclick="go(3)"><span class="nav-dot"></span>Instructions That Work</button>
+      <button class="nav-item" onclick="go(4)"><span class="nav-dot"></span>Progressive Disclosure</button>
+      <button class="nav-item" onclick="go(5)"><span class="nav-dot"></span>Bundled Resources</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Practical Patterns</div>
+      <button class="nav-item" onclick="go(6)"><span class="nav-dot"></span>Rails-Specific Skills</button>
+      <button class="nav-item" onclick="go(7)"><span class="nav-dot"></span>Common Pitfalls</button>
+      <button class="nav-item" onclick="go(8)"><span class="nav-dot"></span>Full Examples</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Iteration</div>
+      <button class="nav-item" onclick="go(9)"><span class="nav-dot"></span>Testing & Improving</button>
+      <button class="nav-item" onclick="go(10)"><span class="nav-dot"></span>Quick Reference</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Progress -->
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress" style="width: 9%"></div>
+    </div>
+
+    <!-- ===================== SECTION 0 ===================== -->
+    <div class="section active" id="s0">
+      <div class="section-tag">Chapter 1 · Foundations</div>
+      <h1>What is a Claude Skill?</h1>
+      <p class="lead">A skill is a Markdown file that teaches Claude how to do a specific task — reliably, repeatably, and with your preferred approach. Think of it as a standing operating procedure that Claude consults whenever a relevant task comes up.</p>
+
+      <h2>Why Skills Matter for Agentic Coding</h2>
+      <p>When you're building Rails apps, you make the same kinds of decisions over and over: how to structure a migration, how to write a service object, how to set up RSpec factories, how to handle Turbo Streams. Without a skill, Claude improvises each time. <strong>With a skill, it follows your pattern every time.</strong></p>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 The Core Idea</div>
+        <p>A skill is like hiring a senior dev who learned exactly how your team works. They don't need to re-ask "how do we do auth here?" — they already know.</p>
+      </div>
+
+      <h2>How Skills Fit Into Claude's Brain</h2>
+      <p>When you send Claude a message, it first reads your <code>available_skills</code> list — just the name and description of each skill. If the description matches what you're asking, Claude fetches and reads the full <code>SKILL.md</code> file before responding.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>You send a message</h4>
+            <p>"Add a service object for Stripe billing to my Rails app"</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Claude scans skill descriptions</h4>
+            <p>It reads the short description of each installed skill to decide which are relevant.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Claude reads matching SKILL.md files</h4>
+            <p>The full instruction body is loaded into context — conventions, patterns, examples.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Claude executes with your patterns</h4>
+            <p>Output follows the exact conventions you defined, not Claude's defaults.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>What Skills Are Good For</h2>
+      <table>
+        <tr><th>Great Use Case</th><th>Why It Works</th><th>Example</th></tr>
+        <tr>
+          <td>Coding conventions</td>
+          <td>Repeatable, objectively verifiable output</td>
+          <td>Service object structure, naming conventions</td>
+        </tr>
+        <tr>
+          <td>Boilerplate generation</td>
+          <td>Fixed templates with variable slots</td>
+          <td>RSpec spec structure, factory templates</td>
+        </tr>
+        <tr>
+          <td>Multi-step workflows</td>
+          <td>Complex sequences Claude would otherwise improvise</td>
+          <td>Adding a new resource (model + migration + controller + views)</td>
+        </tr>
+        <tr>
+          <td>Tool-specific patterns</td>
+          <td>Domain knowledge Claude might not default to</td>
+          <td>Hotwire/Turbo patterns, Sidekiq job structure</td>
+        </tr>
+        <tr>
+          <td>Document creation</td>
+          <td>Fixed format outputs</td>
+          <td>Architecture decision records (ADRs), PR descriptions</td>
+        </tr>
+      </table>
+
+      <div class="page-nav">
+        <button class="nav-btn disabled"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">—</span></button>
+        <button class="nav-btn next" onclick="go(1)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Anatomy of SKILL.md →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 1 ===================== -->
+    <div class="section" id="s1">
+      <div class="section-tag">Chapter 1 · Foundations</div>
+      <h1>Anatomy of SKILL.md</h1>
+      <p class="lead">Every skill is a single Markdown file with a YAML frontmatter block at the top and a body of instructions below. The structure is simple but each part has a specific job.</p>
+
+      <h2>The Full Structure</h2>
+
+      <pre><span class="op">---</span>
+<span class="k">name:</span> <span class="s">rails-service-objects</span>
+<span class="k">description:</span> <span class="s">Generate service objects in a Rails app following the</span>
+  <span class="s">project's established patterns. Use this skill whenever the user</span>
+  <span class="s">asks to add business logic, extract code from a controller, create</span>
+  <span class="s">a service, or implement an operation class. Also trigger for any</span>
+  <span class="s">mention of "service layer", "PORO", or "business logic class".</span>
+<span class="op">---</span>
+
+<span class="kw"># Rails Service Objects</span>
+
+Short intro paragraph explaining what this skill covers.
+
+<span class="kw">## Convention</span>
+
+The specific conventions to follow — naming, file location, structure.
+
+<span class="kw">## Template</span>
+
+The actual code template or pattern to use.
+
+<span class="kw">## Examples</span>
+
+Before/after or usage examples.
+
+<span class="kw">## Notes</span>
+
+Edge cases, gotchas, things to avoid.
+<div class="code-label">SKILL.md</div></pre>
+
+      <h2>The Three Layers</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">A</div>
+          <div class="step-body">
+            <h4>Frontmatter <span class="tag tag-blue">always in context</span></h4>
+            <p>The <code>name</code> and <code>description</code> fields. These are always loaded, even when the skill isn't triggered. Keep the description sharp and triggering — it's the only thing Claude sees when deciding whether to use your skill.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">B</div>
+          <div class="step-body">
+            <h4>SKILL.md body <span class="tag tag-purple">loaded when triggered</span></h4>
+            <p>The full instructions. Loaded into Claude's context when the skill is triggered. Aim for under 500 lines. Everything Claude needs to do the task well should be here — or referenced from here.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">C</div>
+          <div class="step-body">
+            <h4>Bundled resources <span class="tag tag-green">loaded on demand</span></h4>
+            <p>Scripts, reference files, templates, and assets in subdirectories. Claude reads these only when it needs them, so they can be large. A <code>references/</code> folder with framework-specific docs is a common pattern.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Required vs Optional Fields</h2>
+
+      <table>
+        <tr><th>Field</th><th>Required?</th><th>Purpose</th></tr>
+        <tr><td><code>name</code></td><td>✅ Yes</td><td>Identifier. Use kebab-case: <code>rails-factories</code></td></tr>
+        <tr><td><code>description</code></td><td>✅ Yes</td><td>Triggering signal — the most critical field</td></tr>
+        <tr><td><code>compatibility</code></td><td>❌ Rarely</td><td>Required tools, node version, etc.</td></tr>
+        <tr><td><code>license</code></td><td>❌ Optional</td><td>For shared/public skills</td></tr>
+        <tr><td>Body content</td><td>✅ Yes</td><td>The actual instructions</td></tr>
+      </table>
+
+      <div class="callout warn">
+        <div class="callout-title">⚠️ Name Stability</div>
+        <p>The <code>name</code> field is used as the skill's directory name when packaged. Don't rename a skill after users have installed it — you'll break their installations. Get the name right from the start.</p>
+      </div>
+
+      <h2>File System Layout</h2>
+
+      <pre><span class="c"># Simple skill — just a SKILL.md</span>
+rails-service-objects/
+└── SKILL.md
+
+<span class="c"># Complex skill with resources</span>
+rails-full-resource/
+├── SKILL.md           <span class="c"># Main instructions + pointers to references</span>
+├── scripts/
+│   └── scaffold.sh    <span class="c"># Shell scripts Claude can run</span>
+├── references/
+│   ├── hotwire.md     <span class="c"># Framework-specific docs</span>
+│   └── rspec.md
+└── assets/
+    └── spec_template.rb  <span class="c"># Code templates</span>
+<div class="code-label">Structure</div></pre>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(0)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← What is a Skill?</span></button>
+        <button class="nav-btn next" onclick="go(2)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">The Description Field →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 2 ===================== -->
+    <div class="section" id="s2">
+      <div class="section-tag">Chapter 1 · Foundations</div>
+      <h1>The Description Field</h1>
+      <p class="lead">The description is the most critical part of your skill. It's the only thing Claude reads when deciding whether to consult your skill — get it wrong and your skill never fires, no matter how good the body is.</p>
+
+      <h2>What It Needs to Do</h2>
+      <ul class="checklist">
+        <li>Tell Claude <em>what</em> the skill does</li>
+        <li>Tell Claude <em>when</em> to trigger it — the specific contexts, phrases, and request types</li>
+        <li>Be "pushy" — Claude naturally under-triggers skills, so the description should lean toward triggering</li>
+        <li>Include synonyms and alternate phrasings users might say</li>
+      </ul>
+
+      <h2>Good vs Bad Descriptions</h2>
+
+      <div class="compare">
+        <div class="compare-box bad-box">
+          <div class="compare-label">❌ Too Vague</div>
+          <pre><code>description: Helps with Rails development.</code></pre>
+        </div>
+        <div class="compare-box good-box">
+          <div class="compare-label">✅ Specific & Pushy</div>
+          <pre><code>description: Generate Rails service objects,
+  POROs, and operation classes. Use whenever
+  the user wants to extract business logic,
+  add a service layer, or mentions "service
+  object", "operation class", "interactor",
+  or "command pattern" in a Rails context.</code></pre>
+        </div>
+      </div>
+
+      <div class="compare">
+        <div class="compare-box bad-box">
+          <div class="compare-label">❌ Only Describes, Doesn't Trigger</div>
+          <pre><code>description: A skill for creating RSpec
+  tests in Rails projects.</code></pre>
+        </div>
+        <div class="compare-box good-box">
+          <div class="compare-label">✅ Includes Trigger Phrases</div>
+          <pre><code>description: Write RSpec tests for Rails
+  models, controllers, and services. Trigger
+  for any request to "write a test", "add
+  specs", "test this", "write unit tests",
+  or "cover this with tests" in a Rails app.</code></pre>
+        </div>
+      </div>
+
+      <h2>The Anatomy of a Great Description</h2>
+
+      <pre><span class="k">description:</span> <span class="c"># Part 1: What does it do?</span>
+  <span class="s">Generate database migrations for Rails apps following</span>
+  <span class="s">safe, reversible migration patterns.</span>
+  <span class="c"># Part 2: When to trigger (explicit contexts)</span>
+  <span class="s">Use this skill whenever the user asks to add a column,</span>
+  <span class="s">create a table, add an index, or change a schema.</span>
+  <span class="c"># Part 3: Trigger phrases (synonyms & natural language)</span>
+  <span class="s">Also trigger for "need a migration", "update the schema",</span>
+  <span class="s">"add field to model", or any mention of ActiveRecord</span>
+  <span class="s">schema changes.</span>
+<div class="code-label">Description Formula</div></pre>
+
+      <h2>Common Trigger Phrase Patterns</h2>
+
+      <table>
+        <tr><th>Pattern</th><th>Example Phrases to Include</th></tr>
+        <tr>
+          <td>Direct task mention</td>
+          <td>"write a migration", "create a service object", "add RSpec spec"</td>
+        </tr>
+        <tr>
+          <td>Problem description</td>
+          <td>"controller is getting too fat", "need to extract this logic"</td>
+        </tr>
+        <tr>
+          <td>Framework jargon</td>
+          <td>"Turbo Stream", "Stimulus controller", "Hotwire", "Sidekiq worker"</td>
+        </tr>
+        <tr>
+          <td>Pattern names</td>
+          <td>"service object", "PORO", "decorator", "presenter", "interactor"</td>
+        </tr>
+        <tr>
+          <td>Action verbs</td>
+          <td>"add", "generate", "scaffold", "create", "extract", "refactor"</td>
+        </tr>
+      </table>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Pro Tip: Write Descriptions Last</div>
+        <p>Write the skill body first — once you know exactly what it does, you'll write a much more accurate and complete description. The description is a summary of the body, not a plan for it.</p>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">⚠️ Don't Over-Broaden</div>
+        <p>If your description matches too many things, you'll get false triggers — Claude reads your skill when it shouldn't. Balance "pushy" with "specific". A skill for service objects shouldn't trigger when someone asks about ActiveRecord queries.</p>
+      </div>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(1)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Anatomy of SKILL.md</span></button>
+        <button class="nav-btn next" onclick="go(3)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Instructions That Work →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 3 ===================== -->
+    <div class="section" id="s3">
+      <div class="section-tag">Chapter 2 · Writing Great Skills</div>
+      <h1>Instructions That Work</h1>
+      <p class="lead">Good skill instructions are like good code: specific, unambiguous, and built around concrete examples rather than abstract principles.</p>
+
+      <h2>Principles of Effective Instructions</h2>
+
+      <h3>1. Be Concrete, Not Abstract</h3>
+      <p>Abstract principles leave room for interpretation. Concrete rules don't.</p>
+
+      <div class="compare">
+        <div class="compare-box bad-box">
+          <div class="compare-label">❌ Abstract</div>
+          <pre><code>Follow clean code principles.
+Use meaningful names.
+Keep methods short.</code></pre>
+        </div>
+        <div class="compare-box good-box">
+          <div class="compare-label">✅ Concrete</div>
+          <pre><code>Place service objects in app/services/.
+Name them VerbNoun (e.g. CreateOrder,
+  SendInvoice, CancelSubscription).
+Each class exposes a single public method
+  called .call.
+Return a Result object, not raw data.</code></pre>
+        </div>
+      </div>
+
+      <h3>2. Show, Don't Just Tell</h3>
+      <p>Include a template or minimal example. Claude uses it as a reference, not just inspiration.</p>
+
+      <pre><span class="kw">## Template</span>
+
+<span class="s">```ruby</span>
+<span class="c"># app/services/verb_noun.rb</span>
+class VerbNoun
+  Result = Struct.new(:success?, :data, :error, keyword_init: true)
+
+  def initialize(arg1:, arg2:)
+    @arg1 = arg1
+    @arg2 = arg2
+  end
+
+  def call
+    # main logic here
+    Result.new(success?: true, data: result)
+  rescue SomeError => e
+    Result.new(success?: false, error: e.message)
+  end
+end
+<span class="s">```</span>
+<div class="code-label">SKILL.md — Template Section</div></pre>
+
+      <h3>3. Specify File Locations</h3>
+      <p>Always say where files go. Claude will default to something reasonable if you don't — but reasonable isn't always right for your project.</p>
+
+      <pre><span class="kw">## File Locations</span>
+
+- Service objects: <span class="s">`app/services/`</span>
+- Specs for services: <span class="s">`spec/services/`</span>
+- Shared contexts: <span class="s">`spec/support/shared_contexts/`</span>
+- Custom matchers: <span class="s">`spec/support/matchers/`</span>
+<div class="code-label">SKILL.md — File Locations Section</div></pre>
+
+      <h3>4. State What NOT to Do</h3>
+      <p>Negative constraints are often more valuable than positive instructions because they override Claude's defaults.</p>
+
+      <pre><span class="kw">## Constraints</span>
+
+- Do NOT use `after_create` callbacks for business logic — use a service instead
+- Do NOT put service object logic in the controller
+- Do NOT rescue `StandardError` — rescue specific exceptions only
+- Do NOT use `ActiveRecord::Base.transaction` inside a service; let the caller decide
+<div class="code-label">SKILL.md — Constraints Section</div></pre>
+
+      <h3>5. Handle the Common Variations</h3>
+      <p>Think through the most frequent variations of the task and address them explicitly.</p>
+
+      <pre><span class="kw">## Variations</span>
+
+<span class="kw">### If the service needs to call an external API</span>
+Inject the HTTP client as a dependency for testability:
+```ruby
+def initialize(..., http_client: Faraday.new)
+```
+
+<span class="kw">### If the service is a background job wrapper</span>
+Separate the job class from the service class. The job calls the service.
+<div class="code-label">SKILL.md — Variations Section</div></pre>
+
+      <h2>Recommended Section Order</h2>
+
+      <table>
+        <tr><th>Section</th><th>Content</th><th>Required?</th></tr>
+        <tr><td>Intro paragraph</td><td>One sentence: what this skill produces</td><td>✅</td></tr>
+        <tr><td>Convention</td><td>Naming, location, structure rules</td><td>✅</td></tr>
+        <tr><td>Template</td><td>Actual code to follow</td><td>✅ for code skills</td></tr>
+        <tr><td>Constraints</td><td>What NOT to do</td><td>Recommended</td></tr>
+        <tr><td>Variations</td><td>Common edge cases</td><td>When relevant</td></tr>
+        <tr><td>Examples</td><td>Before/after, usage in context</td><td>Optional but powerful</td></tr>
+        <tr><td>Notes</td><td>Gotchas, further reading, decisions</td><td>Optional</td></tr>
+      </table>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(2)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← The Description Field</span></button>
+        <button class="nav-btn next" onclick="go(4)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Progressive Disclosure →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 4 ===================== -->
+    <div class="section" id="s4">
+      <div class="section-tag">Chapter 2 · Writing Great Skills</div>
+      <h1>Progressive Disclosure</h1>
+      <p class="lead">Skills have a three-layer loading system. Understanding it lets you write skills that are fast for simple cases and detailed for complex ones — without bloating Claude's context.</p>
+
+      <h2>The Three Layers in Practice</h2>
+
+      <div class="rails-card">
+        <h4>Layer 1: Description (~50–150 words)</h4>
+        <p>Always in context. Used to decide whether to trigger. Write this to be maximally useful as a trigger signal. Every word counts — don't waste it on what could go in the body.</p>
+      </div>
+
+      <div class="rails-card">
+        <h4>Layer 2: SKILL.md Body (under 500 lines ideal)</h4>
+        <p>Loaded when triggered. Contains the main instructions, templates, and conventions. Should be complete enough that Claude can do the task without reading any reference files in the simple case.</p>
+      </div>
+
+      <div class="rails-card">
+        <h4>Layer 3: Reference Files (unlimited)</h4>
+        <p>In <code>references/</code> subdirectory. Loaded only when Claude explicitly needs them. Good for: framework-specific docs, large templates, lookup tables, API references.</p>
+      </div>
+
+      <h2>When to Split Into Reference Files</h2>
+
+      <p>Split into reference files when your SKILL.md is approaching 400–500 lines, or when you have framework-specific content that only applies in certain cases:</p>
+
+      <pre><span class="c"># In SKILL.md body:</span>
+<span class="kw">## Frontend Integration</span>
+
+If the resource needs Turbo Stream responses, see <span class="s">`references/hotwire.md`</span>.
+If using React instead, see <span class="s">`references/react-integration.md`</span>.
+
+<span class="c"># Then the reference files contain the details:</span>
+references/
+├── hotwire.md       <span class="c"># Full Turbo Stream patterns</span>
+└── react-integration.md  <span class="c"># React-specific patterns</span>
+<div class="code-label">Progressive Disclosure Pattern</div></pre>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 The Test</div>
+        <p>Ask yourself: "For the most common version of this task, does Claude need this content?" If yes → body. If only sometimes → reference file. If never for Claude, but useful as human docs → notes file.</p>
+      </div>
+
+      <h2>Organizing Large Reference Files</h2>
+
+      <p>If a reference file is over 300 lines, add a table of contents at the top. Claude can read the TOC and jump to the relevant section:</p>
+
+      <pre><span class="c"># references/hotwire.md</span>
+
+<span class="kw"># Hotwire / Turbo Reference</span>
+
+<span class="kw">## Table of Contents</span>
+
+1. [Turbo Frames](#turbo-frames) — line 30
+2. [Turbo Streams from controllers](#controller-streams) — line 95
+3. [Turbo Streams from jobs](#job-streams) — line 150
+4. [Stimulus controllers](#stimulus) — line 200
+5. [Common patterns](#patterns) — line 260
+
+---
+
+<span class="kw">## Turbo Frames</span>
+...
+<div class="code-label">references/hotwire.md</div></pre>
+
+      <h2>Domain Organization Pattern</h2>
+
+      <p>When a skill covers multiple frameworks or environments, organize reference files by domain — Claude reads only what it needs:</p>
+
+      <pre>rails-test-generation/
+├── SKILL.md              <span class="c"># Main: choose between rspec / minitest</span>
+└── references/
+    ├── rspec.md           <span class="c"># All RSpec patterns</span>
+    ├── minitest.md        <span class="c"># All Minitest patterns</span>
+    └── factories.md       <span class="c"># FactoryBot shared reference</span>
+<div class="code-label">Domain Organization</div></pre>
+
+      <p>In SKILL.md, include a selection block:</p>
+
+      <pre><span class="kw">## Test Framework</span>
+
+Check the project for which framework is in use:
+- If <span class="s">`spec/`</span> directory exists → RSpec. Read <span class="s">`references/rspec.md`</span>.
+- If <span class="s">`test/`</span> directory exists → Minitest. Read <span class="s">`references/minitest.md`</span>.
+- If unclear, default to RSpec and ask the user to confirm.
+<div class="code-label">SKILL.md — Framework Selection</div></pre>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(3)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Instructions That Work</span></button>
+        <button class="nav-btn next" onclick="go(5)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Bundled Resources →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 5 ===================== -->
+    <div class="section" id="s5">
+      <div class="section-tag">Chapter 2 · Writing Great Skills</div>
+      <h1>Bundled Resources</h1>
+      <p class="lead">Beyond the SKILL.md, you can bundle scripts, reference docs, and asset files. These make your skill a self-contained system rather than a set of instructions.</p>
+
+      <h2>The Three Resource Types</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Scripts (<code>scripts/</code>)</h4>
+            <p>Executable code for deterministic tasks. Shell scripts, Ruby scripts, Python scripts. Claude can run these directly via bash without loading their content into context — great for large generators.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>References (<code>references/</code>)</h4>
+            <p>Documentation, API references, framework guides, decision tables. Claude reads these when it needs them. Ideal for content that's too long for the SKILL.md body.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Assets (<code>assets/</code>)</h4>
+            <p>Template files, icons, fonts, boilerplate code files. Claude can copy these into the user's project or use them as starting points.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Script Pattern Example</h2>
+
+      <p>Scripts are powerful for scaffolding workflows. Instead of having Claude generate code step by step, it can run a script:</p>
+
+      <pre><span class="c"># scripts/scaffold_resource.sh</span>
+#!/bin/bash
+<span class="c"># Usage: ./scaffold_resource.sh ResourceName</span>
+RESOURCE=$1
+LOWER=$(echo "$RESOURCE" | tr '[:upper:]' '[:lower:]')
+
+<span class="c"># Generate model</span>
+rails generate model "$RESOURCE"
+
+<span class="c"># Create service directory</span>
+mkdir -p "app/services/${LOWER}"
+
+<span class="c"># Create spec directory</span>
+mkdir -p "spec/services/${LOWER}"
+
+echo "✓ Scaffolded $RESOURCE"
+<div class="code-label">scripts/scaffold_resource.sh</div></pre>
+
+      <p>In SKILL.md, reference it:</p>
+
+      <pre><span class="kw">## Scaffolding a New Resource</span>
+
+Run the scaffold script to set up the file structure:
+
+```bash
+bash scripts/scaffold_resource.sh ResourceName
+```
+
+Then follow the convention below to fill in the generated files.
+<div class="code-label">SKILL.md — Script Reference</div></pre>
+
+      <h2>Asset Template Pattern</h2>
+
+      <pre><span class="c"># assets/service_object_template.rb.erb</span>
+class <%= class_name %>
+  Result = Struct.new(:success?, :data, :error, keyword_init: true)
+
+  def initialize(<%= args %>)
+<% args.split(',').each do |arg| %>
+    @<%= arg.strip %> = <%= arg.strip %>
+<% end %>
+  end
+
+  def call
+    # TODO: implement
+    Result.new(success?: true, data: nil)
+  end
+
+  private
+
+  attr_reader <%= args.split(',').map { |a| ":#{a.strip}" }.join(', ') %>
+end
+<div class="code-label">assets/service_object_template.rb</div></pre>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Keep Scripts Focused</div>
+        <p>Scripts work best for deterministic operations (file creation, directory setup, bash commands). For anything that requires judgment — like deciding what goes in a service object — keep the logic in the SKILL.md instructions where Claude can reason about it.</p>
+      </div>
+
+      <h2>Reference File Best Practices</h2>
+
+      <ul class="checklist">
+        <li>Name files descriptively: <code>rspec-request-specs.md</code> not <code>testing.md</code></li>
+        <li>Add a TOC at the top of any reference file over 300 lines</li>
+        <li>Include line numbers in your TOC so Claude can jump to sections</li>
+        <li>Write reference files as "here's the pattern" not "here's how Claude should think"</li>
+        <li>Include copy-paste-ready code blocks — not prose descriptions of code</li>
+      </ul>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(4)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Progressive Disclosure</span></button>
+        <button class="nav-btn next" onclick="go(6)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Rails-Specific Skills →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 6 ===================== -->
+    <div class="section" id="s6">
+      <div class="section-tag">Chapter 3 · Practical Patterns</div>
+      <h1>Rails-Specific Skills</h1>
+      <p class="lead">Rails apps have well-defined layers and conventions that make for excellent skills. Here are the most high-value skills to build for a typical Rails project.</p>
+
+      <h2>High-Value Rails Skills to Write</h2>
+
+      <div class="rails-card">
+        <h4>🔧 Service Objects</h4>
+        <p>Define your naming convention, Result object structure, file location, and error handling approach. This is usually the highest-ROI skill for any Rails team.</p>
+      </div>
+
+      <div class="rails-card">
+        <h4>🧪 RSpec Patterns</h4>
+        <p>Factory structure, shared examples, describe/context/it conventions, what to test in models vs request specs vs unit specs.</p>
+      </div>
+
+      <div class="rails-card">
+        <h4>⚡ Hotwire / Turbo Patterns</h4>
+        <p>Turbo Frame usage, Turbo Stream formats, Stimulus controller conventions, how to handle forms and modals.</p>
+      </div>
+
+      <div class="rails-card">
+        <h4>🗄️ Migration Patterns</h4>
+        <p>Reversible migrations, safe column removal, index naming, foreign key conventions, null constraints.</p>
+      </div>
+
+      <div class="rails-card">
+        <h4>🔐 Authorization Patterns</h4>
+        <p>Your Pundit policy structure (or CanCanCan, or whatever you use), how policies are organized, what gets checked where.</p>
+      </div>
+
+      <div class="rails-card">
+        <h4>📬 Background Jobs</h4>
+        <p>Sidekiq class structure, retry behavior, idempotency expectations, how jobs relate to service objects.</p>
+      </div>
+
+      <h2>A Complete Rails Migration Skill</h2>
+
+      <p>Here's a fully worked example of a migration skill:</p>
+
+      <pre><span class="op">---</span>
+<span class="k">name:</span> <span class="s">rails-migrations</span>
+<span class="k">description:</span> <span class="s">Write safe, reversible ActiveRecord migrations for Rails</span>
+  <span class="s">apps. Use whenever the user asks to add a column, remove a</span>
+  <span class="s">column, create a table, add an index, rename a column, or</span>
+  <span class="s">change a schema in any way. Also trigger for "update the</span>
+  <span class="s">schema", "need a migration", or "add field to model".</span>
+<span class="op">---</span>
+
+<span class="kw"># Rails Migrations</span>
+
+Generate safe, reversible, zero-downtime-friendly migrations.
+
+<span class="kw">## Conventions</span>
+
+- Always use <span class="s">`change`</span> method (reversible) unless you need <span class="s">`up`</span>/<span class="s">`down`</span>
+- Name migrations descriptively: <span class="s">`AddStatusToOrders`</span>, not <span class="s">`UpdateOrders`</span>
+- Always add <span class="s">`null: false`</span> with a <span class="s">`default:`</span> when adding columns to existing tables
+
+<span class="kw">## Adding a Column</span>
+
+```ruby
+class AddStatusToOrders &lt; ActiveRecord::Migration[7.1]
+  def change
+    add_column :orders, :status, :string, null: false, default: "pending"
+    add_index :orders, :status
+  end
+end
+```
+
+<span class="kw">## Removing a Column</span>
+
+ALWAYS use <span class="s">`ignored_columns`</span> in the model first, deploy, then remove:
+
+```ruby
+<span class="c"># Step 1: Add to model (deploy first)</span>
+class Order &lt; ApplicationRecord
+  self.ignored_columns = ["deprecated_field"]
+end
+
+<span class="c"># Step 2: After deploy, create this migration</span>
+class RemoveDeprecatedFieldFromOrders &lt; ActiveRecord::Migration[7.1]
+  def change
+    remove_column :orders, :deprecated_field, :string
+  end
+end
+```
+
+<span class="kw">## Constraints</span>
+
+- Never add NOT NULL column without a default to a populated table
+- Never use <span class="s">`execute`</span> for data migrations — use a separate Rake task
+- Never add an index without <span class="s">`algorithm: :concurrently`</span> on large tables in production
+<div class="code-label">Full Migration SKILL.md</div></pre>
+
+      <h2>Project-Specific Customization</h2>
+
+      <p>The best skills are tailored to your specific project. Add a section that captures your project's unique decisions:</p>
+
+      <pre><span class="kw">## This Project's Conventions</span>
+
+- We use UUIDs as primary keys (<span class="s">`id: :uuid`</span> in all create_table calls)
+- All timestamps use <span class="s">`timestamptz`</span> via the <span class="s">`ar-timestamptz`</span> gem
+- Soft-delete columns are named <span class="s">`discarded_at`</span> (we use Discard gem)
+- Enum columns use <span class="s">`integer`</span> type, not <span class="s">`string`</span>
+<div class="code-label">Project-Specific Section</div></pre>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Start With One Skill, Not Ten</div>
+        <p>Don't try to capture your entire codebase in skills on day one. Pick your most painful inconsistency — the pattern Claude gets wrong most often — and write one skill for it. Then add more as you notice Claude going off-script.</p>
+      </div>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(5)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Bundled Resources</span></button>
+        <button class="nav-btn next" onclick="go(7)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Common Pitfalls →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 7 ===================== -->
+    <div class="section" id="s7">
+      <div class="section-tag">Chapter 3 · Practical Patterns</div>
+      <h1>Common Pitfalls</h1>
+      <p class="lead">These are the mistakes that make skills not work — either Claude ignores the skill, or follows it inconsistently. Knowing them in advance will save you a lot of debugging.</p>
+
+      <h2>Pitfall 1: The Vague Description</h2>
+
+      <div class="callout bad">
+        <div class="callout-title">❌ Problem</div>
+        <p>Description is too short or generic: <em>"Helps with Rails development"</em>. Claude sees dozens of other skills, all of which also look like they could apply. Your skill never triggers.</p>
+      </div>
+
+      <div class="callout good">
+        <div class="callout-title">✅ Fix</div>
+        <p>Be specific about the task type, include synonym phrases the user might say, and explicitly list the contexts that should trigger the skill. Aim for 60–120 words in your description.</p>
+      </div>
+
+      <h2>Pitfall 2: Principles Instead of Rules</h2>
+
+      <div class="callout bad">
+        <div class="callout-title">❌ Problem</div>
+        <p><em>"Follow clean architecture principles and keep services focused."</em> Claude agrees with this in the abstract but interprets it differently each time. You get inconsistent output.</p>
+      </div>
+
+      <div class="callout good">
+        <div class="callout-title">✅ Fix</div>
+        <p>Replace every abstract principle with a concrete, verifiable rule. "Keep services focused" → "Each service class exposes exactly one public method: <code>.call</code>. If you need two operations, create two classes."</p>
+      </div>
+
+      <h2>Pitfall 3: No Negative Constraints</h2>
+
+      <div class="callout bad">
+        <div class="callout-title">❌ Problem</div>
+        <p>You describe what to do, but not what to avoid. Claude reverts to its defaults for the things you didn't mention — which are often the things you care most about.</p>
+      </div>
+
+      <div class="callout good">
+        <div class="callout-title">✅ Fix</div>
+        <p>Add a "Constraints" or "Do Not" section. Think: what does Claude do wrong when you don't have this skill? Those are your constraints. "Never use callbacks for business logic. Never rescue StandardError."</p>
+      </div>
+
+      <h2>Pitfall 4: SKILL.md Too Long</h2>
+
+      <div class="callout bad">
+        <div class="callout-title">❌ Problem</div>
+        <p>800-line SKILL.md covering every edge case. The key rules get buried. Claude weights early content more heavily — critical instructions at line 700 get less attention than at line 20.</p>
+      </div>
+
+      <div class="callout good">
+        <div class="callout-title">✅ Fix</div>
+        <p>Keep SKILL.md under 500 lines. Move detailed edge-case docs to <code>references/</code>. Put the most critical rules first. Use progressive disclosure — common case in the body, special cases in reference files.</p>
+      </div>
+
+      <h2>Pitfall 5: Overlapping Skills</h2>
+
+      <div class="callout bad">
+        <div class="callout-title">❌ Problem</div>
+        <p>You have a "Rails services" skill and a "Rails business logic" skill with overlapping descriptions. Claude reads both and gets conflicting instructions, or reads neither because it's unclear which applies.</p>
+      </div>
+
+      <div class="callout good">
+        <div class="callout-title">✅ Fix</div>
+        <p>Give each skill a clearly distinct domain. If two skills overlap, merge them into one or add exclusion language: <em>"This skill does NOT cover background jobs — for that, see the rails-jobs skill."</em></p>
+      </div>
+
+      <h2>Pitfall 6: Writing for Yourself, Not for Claude</h2>
+
+      <div class="callout bad">
+        <div class="callout-title">❌ Problem</div>
+        <p>The SKILL.md is written like documentation for a human developer — narrative prose explaining the history of a decision. Claude has to parse it to find the actionable parts.</p>
+      </div>
+
+      <div class="callout good">
+        <div class="callout-title">✅ Fix</div>
+        <p>Write for Claude as the reader: use imperative voice ("Do X. Don't do Y."), put templates in code blocks, and eliminate narrative. You can add a "Background" section at the bottom for human readers, but keep it separate from the instructions.</p>
+      </div>
+
+      <h2>Quick Diagnostic Checklist</h2>
+
+      <p>If your skill isn't working, check these things in order:</p>
+
+      <ul class="checklist">
+        <li>Does the description include specific trigger phrases the user actually says?</li>
+        <li>Does the SKILL.md body have concrete templates, not just abstract principles?</li>
+        <li>Is there a "Do Not" or "Constraints" section?</li>
+        <li>Are all file paths and naming conventions explicitly stated?</li>
+        <li>Is the SKILL.md under 500 lines with critical content near the top?</li>
+        <li>Is there any ambiguity that would allow multiple interpretations?</li>
+      </ul>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(6)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Rails-Specific Skills</span></button>
+        <button class="nav-btn next" onclick="go(8)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Full Examples →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 8 ===================== -->
+    <div class="section" id="s8">
+      <div class="section-tag">Chapter 3 · Practical Patterns</div>
+      <h1>Full Examples</h1>
+      <p class="lead">Two complete, copy-paste-ready skills you can install immediately or use as templates for your own.</p>
+
+      <h2>Example 1: Rails Service Objects Skill</h2>
+
+      <pre><span class="op">---</span>
+<span class="k">name:</span> <span class="s">rails-service-objects</span>
+<span class="k">description:</span> <span class="s">Generate service objects and operation classes for Rails apps.</span>
+  <span class="s">Use this skill whenever the user asks to create a service object,</span>
+  <span class="s">extract controller logic into a service, add a business logic class,</span>
+  <span class="s">or build an operation/command/interactor. Also trigger for any</span>
+  <span class="s">mention of "service layer", "PORO service", "fat controller", or</span>
+  <span class="s">"extract this into a class".</span>
+<span class="op">---</span>
+
+<span class="kw"># Rails Service Objects</span>
+
+Generate single-responsibility service objects for encapsulating
+business logic outside of models and controllers.
+
+<span class="kw">## Convention</span>
+
+| Attribute | Rule |
+|-----------|------|
+| Location  | `app/services/` — subdirectory if domain-grouped |
+| Naming    | VerbNoun: `CreateOrder`, `SendInvoice`, `CancelSubscription` |
+| Interface | Single public method: `.call` or `#call` |
+| Return    | `Result` struct, not raw values |
+| Spec path | `spec/services/` mirroring `app/services/` |
+
+<span class="kw">## Template</span>
+
+```ruby
+<span class="c"># app/services/verb_noun.rb</span>
+class VerbNoun
+  Result = Data.define(:success, :value, :error) do
+    def success? = success
+    def failure? = !success
+  end
+
+  def self.call(...) = new(...).call
+
+  def initialize(required_arg:, optional_arg: nil)
+    @required_arg = required_arg
+    @optional_arg = optional_arg
+  end
+
+  def call
+    validate!
+    result = perform
+    Result.new(success: true, value: result, error: nil)
+  rescue MyApp::Error => e
+    Result.new(success: false, value: nil, error: e.message)
+  end
+
+  private
+
+  attr_reader :required_arg, :optional_arg
+
+  def validate!
+    raise MyApp::Error, "required_arg is blank" if required_arg.blank?
+  end
+
+  def perform
+    <span class="c"># core logic here</span>
+  end
+end
+```
+
+<span class="kw">## Usage (in controller)</span>
+
+```ruby
+def create
+  result = CreateOrder.call(user: current_user, params: order_params)
+
+  if result.success?
+    redirect_to result.value, notice: "Order created"
+  else
+    flash.now[:error] = result.error
+    render :new, status: :unprocessable_entity
+  end
+end
+```
+
+<span class="kw">## RSpec Template</span>
+
+```ruby
+<span class="c"># spec/services/verb_noun_spec.rb</span>
+RSpec.describe VerbNoun do
+  describe ".call" do
+    subject(:result) { described_class.call(**params) }
+
+    let(:params) { { required_arg: "value" } }
+
+    context "when successful" do
+      it { is_expected.to be_success }
+      it { expect(result.value).to eq(expected_value) }
+    end
+
+    context "when required_arg is blank" do
+      let(:params) { { required_arg: "" } }
+      it { is_expected.to be_failure }
+      it { expect(result.error).to include("blank") }
+    end
+  end
+end
+```
+
+<span class="kw">## Constraints</span>
+
+- Never put service logic in model callbacks or controller actions
+- Never rescue `StandardError` — rescue specific exception classes
+- Never call `save!` on AR objects inside a service; return data and let
+  the caller persist if needed (keeps services testable without DB)
+- Never add more than one public method — split into multiple services
+<div class="code-label">rails-service-objects/SKILL.md</div></pre>
+
+      <hr class="divider">
+
+      <h2>Example 2: General Coding Convention Skill</h2>
+
+      <pre><span class="op">---</span>
+<span class="k">name:</span> <span class="s">project-conventions</span>
+<span class="k">description:</span> <span class="s">Project-specific coding conventions for this codebase.</span>
+  <span class="s">Always use this skill when writing any code for this project —</span>
+  <span class="s">it defines the naming, structure, style, and tooling choices</span>
+  <span class="s">that override Claude's defaults. Trigger for any code generation,</span>
+  <span class="s">refactoring, or editing task in this repository.</span>
+<span class="op">---</span>
+
+<span class="kw"># Project Conventions</span>
+
+These conventions override Claude's defaults for all code in this repo.
+
+<span class="kw">## Ruby Style</span>
+
+- Ruby 3.3+, Rails 7.2+
+- Frozen string literals on all new files: `# frozen_string_literal: true`
+- Use `Data.define` for value objects (Ruby 3.2+), not `Struct`
+- Prefer pattern matching (`case/in`) over chains of `if/elsif`
+- `private` methods alphabetically sorted
+
+<span class="kw">## Naming</span>
+
+- Models: singular noun (`Order`, `User`)
+- Controllers: plural resource (`OrdersController`)
+- Services: VerbNoun (`CreateOrder`)
+- Jobs: NounVerb + `Job` suffix (`OrderCreatedJob`)
+- Concerns: adjective or noun (`Discardable`, `Auditable`)
+
+<span class="kw">## Testing</span>
+
+- RSpec only (no Minitest)
+- FactoryBot for fixtures — never `Model.create` in specs directly
+- All factories in `spec/factories/` — one file per model
+- No `let!` — use `let` and `before` instead
+- Descriptive `it` blocks: use present tense ("returns X", not "should return X")
+
+<span class="kw">## Tooling</span>
+
+- Rubocop with standard gem — never disable cops inline
+- Brakeman for security — fix all warnings before merging
+- Bundler Audit in CI
+
+<span class="kw">## What NOT to Do</span>
+
+- No `puts` or `p` — use `Rails.logger`
+- No `rescue Exception` — ever
+- No inline SQL — use AR query interface or Arel
+- No `Time.now` — use `Time.current` (timezone-aware)
+- No `Date.today` — use `Date.current`
+<div class="code-label">project-conventions/SKILL.md</div></pre>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(7)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Common Pitfalls</span></button>
+        <button class="nav-btn next" onclick="go(9)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Testing & Improving →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 9 ===================== -->
+    <div class="section" id="s9">
+      <div class="section-tag">Chapter 4 · Iteration</div>
+      <h1>Testing & Improving Skills</h1>
+      <p class="lead">A skill draft is just a hypothesis. The real work is figuring out where it breaks down and tightening the instructions until Claude consistently does exactly what you want.</p>
+
+      <h2>How to Test a Skill</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Write 5–10 test prompts</h4>
+            <p>Cover the main use case, edge cases, and tricky variations. Write prompts the way users would actually phrase them — not like test cases.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Run each prompt with the skill installed</h4>
+            <p>Don't tell Claude to use the skill — if it's working, it should trigger automatically based on the description.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Check: did it trigger?</h4>
+            <p>If Claude didn't use your skill when it should have, the description needs more trigger phrases or more specificity. If it triggered when it shouldn't, broaden the exclusions.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Check: is the output correct?</h4>
+            <p>Verify naming, file paths, template structure, constraints. Make a list of everything wrong.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Update the skill, repeat</h4>
+            <p>Each iteration, fix the most common failure mode. Don't try to fix everything at once.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Diagnosing Failures</h2>
+
+      <table>
+        <tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr>
+        <tr>
+          <td>Skill never triggers</td>
+          <td>Description too vague or missing trigger phrases</td>
+          <td>Add specific phrases, task types, and contexts to description</td>
+        </tr>
+        <tr>
+          <td>Skill triggers for wrong things</td>
+          <td>Description too broad</td>
+          <td>Add exclusion language: "Does NOT apply to X"</td>
+        </tr>
+        <tr>
+          <td>Wrong naming / file paths</td>
+          <td>Convention section not explicit enough</td>
+          <td>Add a table with explicit rules, or add a constraints section</td>
+        </tr>
+        <tr>
+          <td>Template not followed</td>
+          <td>Instructions too prose-heavy</td>
+          <td>Move to imperative voice, put template in a code block</td>
+        </tr>
+        <tr>
+          <td>Inconsistent output</td>
+          <td>Ambiguous instructions, multiple valid interpretations</td>
+          <td>Add explicit negative constraints, remove any ambiguity</td>
+        </tr>
+        <tr>
+          <td>Ignores edge cases</td>
+          <td>Edge cases not covered in skill</td>
+          <td>Add a Variations or Edge Cases section</td>
+        </tr>
+      </table>
+
+      <h2>The Improvement Loop</h2>
+
+      <pre><span class="c"># Skill improvement is a loop, not a one-shot</span>
+
+while skill_not_good_enough:
+  run_test_prompts(skill)
+  failures = identify_failures()
+
+  if failures.include?(:trigger_failure):
+    improve_description()
+  
+  if failures.include?(:wrong_output):
+    improve_instructions()
+    add_constraints()
+    clarify_template()
+  
+  if skill.body.length > 500:
+    extract_to_reference_files()
+<div class="code-label">Pseudocode</div></pre>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 The "One Failure at a Time" Rule</div>
+        <p>When you find multiple things wrong, fix the most common failure mode first. Re-test before fixing the next one. Fixing everything at once makes it impossible to know which change helped.</p>
+      </div>
+
+      <h2>Evolving Skills Over Time</h2>
+
+      <p>Your skill should evolve as your codebase and preferences evolve. Good triggers to update a skill:</p>
+
+      <ul class="checklist">
+        <li>You catch Claude doing something wrong that it keeps repeating</li>
+        <li>You make a project-wide refactor that changes a convention</li>
+        <li>You upgrade a gem and the API or patterns change</li>
+        <li>A teammate says "Claude always generates the tests wrong"</li>
+        <li>You add a new layer to your architecture (e.g., start using presenters)</li>
+      </ul>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Keep Skills in Version Control</div>
+        <p>Store your <code>skills/</code> directory in your project repo. This way the team shares the same skills, skill updates are reviewed in PRs, and skill history is tracked alongside the code it governs.</p>
+      </div>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(8)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Full Examples</span></button>
+        <button class="nav-btn next" onclick="go(10)"><span class="nav-btn-label">Next</span><span class="nav-btn-title">Quick Reference →</span></button>
+      </div>
+    </div>
+
+    <!-- ===================== SECTION 10 ===================== -->
+    <div class="section" id="s10">
+      <div class="section-tag">Chapter 4 · Iteration</div>
+      <h1>Quick Reference</h1>
+      <p class="lead">Everything you need on one page. Bookmark this section and use it while writing or reviewing skills.</p>
+
+      <h2>SKILL.md Checklist</h2>
+
+      <ul class="checklist">
+        <li><strong>Description</strong>: 60–120 words, includes what it does + when to trigger + synonym phrases</li>
+        <li><strong>Name</strong>: Stable kebab-case identifier, won't change</li>
+        <li><strong>Intro</strong>: One sentence saying what this skill produces</li>
+        <li><strong>Convention section</strong>: Explicit naming, file path, structure rules</li>
+        <li><strong>Template</strong>: Copy-paste-ready code block (for code skills)</li>
+        <li><strong>Constraints</strong>: At least 3 "never do X" rules</li>
+        <li><strong>Edge cases</strong>: Variations section for common alternatives</li>
+        <li><strong>Length</strong>: Under 500 lines, critical content in first 200</li>
+      </ul>
+
+      <hr class="divider">
+
+      <h2>Description Formula</h2>
+
+      <pre><span class="k">description:</span> <span class="s">[WHAT it does in one clear sentence.]</span>
+  <span class="s">[WHEN to trigger: specific task types and contexts.]</span>
+  <span class="s">[ALSO trigger for: synonym phrases and natural language variants.]</span>
+<div class="code-label">Formula</div></pre>
+
+      <hr class="divider">
+
+      <h2>Instruction Writing Rules</h2>
+
+      <table>
+        <tr><th>Rule</th><th>Instead of</th><th>Write</th></tr>
+        <tr><td>Imperative voice</td><td>"Services should be..."</td><td>"Put services in app/services/"</td></tr>
+        <tr><td>Concrete over abstract</td><td>"Keep methods short"</td><td>"Methods max 10 lines, max 2 args"</td></tr>
+        <tr><td>Explicit paths</td><td>"In the services folder"</td><td>"`app/services/` — subdirectoried by domain"</td></tr>
+        <tr><td>Templates in code blocks</td><td>Prose description of structure</td><td>Actual Ruby/JS/etc. code to copy</td></tr>
+        <tr><td>Negative constraints</td><td>(nothing about what NOT to do)</td><td>"Never rescue StandardError. Never..."</td></tr>
+      </table>
+
+      <hr class="divider">
+
+      <h2>File Structure Reference</h2>
+
+      <pre>my-skill/
+├── SKILL.md               <span class="c"># Required. Main instructions.</span>
+├── scripts/               <span class="c"># Optional. Runnable shell/ruby scripts.</span>
+│   └── setup.sh
+├── references/            <span class="c"># Optional. Large docs Claude reads on demand.</span>
+│   ├── framework-a.md
+│   └── framework-b.md
+└── assets/                <span class="c"># Optional. Template files, boilerplate.</span>
+    └── template.rb
+<div class="code-label">Structure</div></pre>
+
+      <hr class="divider">
+
+      <h2>Trigger Failure Diagnosis</h2>
+
+      <table>
+        <tr><th>Problem</th><th>Quick Fix</th></tr>
+        <tr><td>Skill never triggers</td><td>Add explicit trigger phrases to description</td></tr>
+        <tr><td>Triggers for wrong requests</td><td>Add "Does NOT apply to X" exclusions</td></tr>
+        <tr><td>Wrong output structure</td><td>Add or improve the template code block</td></tr>
+        <tr><td>Wrong file paths/names</td><td>Add a Convention table with explicit paths</td></tr>
+        <tr><td>Ignores constraints</td><td>Add a "Never do X" constraints section</td></tr>
+        <tr><td>Inconsistent output</td><td>Look for ambiguous instructions and make them specific</td></tr>
+      </table>
+
+      <hr class="divider">
+
+      <h2>Top Rails Skills to Write</h2>
+
+      <p>
+        <span class="tag tag-blue">rails-service-objects</span>
+        <span class="tag tag-blue">rails-migrations</span>
+        <span class="tag tag-blue">rails-rspec-patterns</span>
+        <span class="tag tag-blue">rails-factories</span>
+        <span class="tag tag-purple">hotwire-turbo</span>
+        <span class="tag tag-purple">stimulus-controllers</span>
+        <span class="tag tag-green">sidekiq-jobs</span>
+        <span class="tag tag-green">pundit-policies</span>
+        <span class="tag tag-green">project-conventions</span>
+      </p>
+
+      <hr class="divider">
+
+      <h2>The Golden Rules</h2>
+
+      <div class="callout tip">
+        <div class="callout-title">1. Descriptions Trigger, Bodies Instruct</div>
+        <p>Everything about "when to use" goes in the description. Everything about "how to do it" goes in the body. Never mix them.</p>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">2. Show the Template</div>
+        <p>A code template is worth ten paragraphs of prose. Always include at least one copy-paste-ready example for code-generation skills.</p>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">3. Constrain the Defaults</div>
+        <p>Claude will fall back to its defaults for anything you don't mention. The most important part of a skill is often the "Do NOT" section — it's where you override those defaults.</p>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">4. Iterate, Don't Perfect</div>
+        <p>Ship a 70% skill and improve it as you catch failures. A skill in production catching real failures is more valuable than a perfect skill that took three weeks to write.</p>
+      </div>
+
+      <div class="page-nav">
+        <button class="nav-btn" onclick="go(9)"><span class="nav-btn-label">Previous</span><span class="nav-btn-title">← Testing & Improving</span></button>
+        <button class="nav-btn disabled next"><span class="nav-btn-label">Next</span><span class="nav-btn-title">— End —</span></button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const sections = document.querySelectorAll('.section');
+  const navItems = document.querySelectorAll('.nav-item');
+  const progress = document.getElementById('progress');
+  const total = sections.length;
+
+  function go(idx) {
+    sections.forEach((s, i) => s.classList.toggle('active', i === idx));
+    navItems.forEach((n, i) => n.classList.toggle('active', i === idx));
+    progress.style.width = ((idx + 1) / total * 100) + '%';
+    document.querySelector('.main').scrollTop = 0;
+  }
+</script>
+</body>
+</html>
