@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Documentation for Developers</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0e0e0e;
+    --paper: #f5f0e8;
+    --accent: #d4521a;
+    --accent2: #2a6b8a;
+    --muted: #7a7060;
+    --rule: #c8bfa8;
+    --code-bg: #1a1a1a;
+    --code-text: #e8dcc8;
+    --highlight: #f0c060;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  /* HEADER */
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding: 3rem 4rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 2rem;
+  }
+
+  .masthead-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .masthead h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .masthead h1 span {
+    color: var(--accent);
+  }
+
+  .masthead-meta {
+    text-align: right;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 2;
+  }
+
+  /* TOC */
+  .toc-bar {
+    border-bottom: 1px solid var(--rule);
+    padding: 1rem 4rem;
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .toc-bar span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-right: 0.5rem;
+  }
+
+  .toc-bar a {
+    font-size: 11px;
+    color: var(--ink);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    padding: 2px 0;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .toc-bar a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* LAYOUT */
+  .content {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 3rem 4rem 6rem;
+  }
+
+  /* SECTIONS */
+  .section {
+    margin-bottom: 5rem;
+    padding-bottom: 5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .section:last-child {
+    border-bottom: none;
+  }
+
+  .section-number {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+
+  .section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.5rem;
+  }
+
+  .section h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  .section h3::before {
+    content: '→ ';
+    color: var(--accent);
+  }
+
+  .section p {
+    color: #2a2620;
+    margin-bottom: 1rem;
+    max-width: 70ch;
+  }
+
+  /* CALLOUT BOXES */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: rgba(212, 82, 26, 0.06);
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .callout.tip {
+    border-color: var(--accent2);
+    background: rgba(42, 107, 138, 0.06);
+  }
+
+  .callout.tip::before {
+    content: 'TIP ';
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--accent2);
+  }
+
+  .callout::before {
+    content: 'NOTE ';
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .callout p { margin: 0; }
+
+  /* CODE BLOCKS */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 1.25rem 1.5rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 1.25rem 0;
+    font-size: 12.5px;
+    line-height: 1.7;
+    border: 1px solid #2a2a2a;
+  }
+
+  pre .comment { color: #6a6a5a; font-style: italic; }
+  pre .keyword { color: #c0956f; }
+  pre .string { color: #8fbc8f; }
+  pre .number { color: #8ab4d4; }
+  pre .method { color: #d4b896; }
+  pre .type { color: #c8a8d8; }
+  pre .label { color: var(--highlight); font-weight: 500; }
+
+  code {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12.5px;
+  }
+
+  /* DIAGRAM PREVIEW */
+  .diagram-preview {
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .diagram-preview .d-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* COMPARISON TABLE */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 12.5px;
+  }
+
+  .compare-table th {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0.6rem 1rem;
+    text-align: left;
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .compare-table td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    color: #2a2620;
+  }
+
+  .compare-table tr:hover td {
+    background: rgba(0,0,0,0.02);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 2px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .badge.good { background: #d4ead4; color: #2a5a2a; }
+  .badge.ok { background: #e8e0c8; color: #5a4a1a; }
+  .badge.hard { background: #f0d4d4; color: #5a1a1a; }
+
+  /* STEP LIST */
+  .steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 1.5rem 0;
+  }
+
+  .steps li {
+    counter-increment: step;
+    padding: 0.75rem 0 0.75rem 3rem;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+    color: #2a2620;
+  }
+
+  .steps li:last-child { border-bottom: none; }
+
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 0.75rem;
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  /* TAG PILLS */
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+
+  .tag {
+    padding: 3px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* INLINE DIAGRAM CODE */
+  .mermaid-source {
+    background: var(--code-bg);
+    color: #a8c8a8;
+    padding: 1.25rem 1.5rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .mermaid-source .k { color: #c0956f; }
+  .mermaid-source .s { color: var(--highlight); }
+  .mermaid-source .c { color: #505048; font-style: italic; }
+  .mermaid-source .arrow { color: #8ab4d4; }
+
+  /* RULER */
+  .hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 2rem 0;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 3px solid var(--ink);
+    padding: 2rem 4rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  footer strong {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    letter-spacing: 0;
+  }
+
+  /* GRID for tools */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .tool-card {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.25rem;
+  }
+
+  .tool-card h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+
+  .tool-card p { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+  .tool-card .tool-tags { margin-top: 0.75rem; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div>
+    <p class="masthead-eyebrow">Developer Reference · Visual Documentation</p>
+    <h1>Diagrams as<br><span>Code</span></h1>
+    <p style="color: var(--muted); margin-top: 1rem; max-width: 55ch; font-size: 12.5px;">
+      A complete guide to generating, maintaining, and communicating architecture through diagrams — from context maps to async job flows.
+    </p>
+  </div>
+  <div class="masthead-meta">
+    Mermaid · PlantUML · C4<br>
+    Rails · Sidekiq · Event Storming<br>
+    Auto-generation · CI/CD
+  </div>
+</header>
+
+<nav class="toc-bar">
+  <span>Contents</span>
+  <a href="#philosophy">Philosophy</a>
+  <a href="#tooling">Tooling</a>
+  <a href="#c4">C4 Model</a>
+  <a href="#context">Context Diagrams</a>
+  <a href="#component">Component Diagrams</a>
+  <a href="#static">Static Diagrams</a>
+  <a href="#runtime">Runtime & Event Storming</a>
+  <a href="#async">Async & Sidekiq</a>
+  <a href="#autogen">Auto-generation</a>
+  <a href="#workflow">Workflow</a>
+</nav>
+
+<main class="content">
+
+  <!-- PHILOSOPHY -->
+  <section class="section" id="philosophy">
+    <span class="section-number">01 · Philosophy</span>
+    <h2>Why Diagrams-as-Code?</h2>
+
+    <p>Diagrams-as-code means your architecture documentation lives in your repository, diffs with your PRs, and never drifts out of sync because a developer forgot to update a Confluence page. When the code changes, the diagram changes — ideally automatically.</p>
+
+    <p>The core principle: <strong>a diagram you can't version control is a diagram you can't trust.</strong> Visio screenshots and draw.io exports rot the moment they're committed.</p>
+
+    <div class="callout">
+      <p>Treat diagrams like tests. They should live next to the code they describe, run in CI, and fail loudly when stale.</p>
+    </div>
+
+    <h3>The Four Questions Every Diagram Answers</h3>
+    <ol class="steps">
+      <li><strong>What exists?</strong> — Context &amp; component diagrams. The static inventory of your system.</li>
+      <li><strong>How does it connect?</strong> — Dependency graphs, class diagrams. Structural relationships.</li>
+      <li><strong>What happens at runtime?</strong> — Sequence diagrams, event flows. Dynamic behavior.</li>
+      <li><strong>How does it change?</strong> — State machines. How an entity moves through its lifecycle.</li>
+    </ol>
+  </section>
+
+  <!-- TOOLING -->
+  <section class="section" id="tooling">
+    <span class="section-number">02 · Tooling</span>
+    <h2>Choosing Your Format</h2>
+
+    <p>Mermaid is the pragmatic default — native in GitHub, GitLab, Notion, and most documentation platforms. PlantUML is more powerful but requires a render server. Use the right tool for the audience.</p>
+
+    <div class="tool-grid">
+      <div class="tool-card">
+        <h4>🧜 Mermaid</h4>
+        <p>Renders natively in GitHub/GitLab markdown. Best for sequence, flowcharts, state, ER, and basic C4. No install required for readers.</p>
+        <div class="tool-tags tags">
+          <span class="tag">Native GitHub</span>
+          <span class="tag">Easy syntax</span>
+          <span class="tag">Web-first</span>
+        </div>
+      </div>
+      <div class="tool-card">
+        <h4>🌱 PlantUML</h4>
+        <p>More complete UML spec support. Better for C4 (via library), component diagrams, and anything Mermaid can't express. Needs a render server or local Java.</p>
+        <div class="tool-tags tags">
+          <span class="tag">Full UML</span>
+          <span class="tag">C4 library</span>
+          <span class="tag">CI-friendly</span>
+        </div>
+      </div>
+      <div class="tool-card">
+        <h4>📐 Structurizr</h4>
+        <p>The official C4 model tool by Simon Brown. DSL-first, workspace-based, exports to PlantUML/Mermaid. Best for teams committing to C4 seriously.</p>
+        <div class="tool-tags tags">
+          <span class="tag">C4 native</span>
+          <span class="tag">DSL</span>
+          <span class="tag">Multi-view</span>
+        </div>
+      </div>
+      <div class="tool-card">
+        <h4>🔷 D2</h4>
+        <p>Modern alternative with cleaner syntax than PlantUML. Auto-layout is excellent. Growing ecosystem. Good for architecture overviews.</p>
+        <div class="tool-tags tags">
+          <span class="tag">Modern</span>
+          <span class="tag">Auto-layout</span>
+          <span class="tag">Go binary</span>
+        </div>
+      </div>
+    </div>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Diagram Type</th>
+          <th>Mermaid</th>
+          <th>PlantUML</th>
+          <th>Structurizr</th>
+          <th>D2</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Context (C4 L1)</td>
+          <td><span class="badge ok">OK</span></td>
+          <td><span class="badge good">Best</span></td>
+          <td><span class="badge good">Native</span></td>
+          <td><span class="badge ok">OK</span></td>
+        </tr>
+        <tr>
+          <td>Component</td>
+          <td><span class="badge ok">OK</span></td>
+          <td><span class="badge good">Best</span></td>
+          <td><span class="badge good">Native</span></td>
+          <td><span class="badge good">Good</span></td>
+        </tr>
+        <tr>
+          <td>Sequence</td>
+          <td><span class="badge good">Best</span></td>
+          <td><span class="badge good">Good</span></td>
+          <td><span class="badge ok">OK</span></td>
+          <td><span class="badge ok">OK</span></td>
+        </tr>
+        <tr>
+          <td>Class/ER</td>
+          <td><span class="badge good">Good</span></td>
+          <td><span class="badge good">Best</span></td>
+          <td><span class="badge hard">No</span></td>
+          <td><span class="badge ok">OK</span></td>
+        </tr>
+        <tr>
+          <td>State Machine</td>
+          <td><span class="badge good">Good</span></td>
+          <td><span class="badge good">Good</span></td>
+          <td><span class="badge hard">No</span></td>
+          <td><span class="badge ok">OK</span></td>
+        </tr>
+        <tr>
+          <td>Event Storming</td>
+          <td><span class="badge ok">Manual</span></td>
+          <td><span class="badge ok">Manual</span></td>
+          <td><span class="badge hard">No</span></td>
+          <td><span class="badge ok">Manual</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- C4 MODEL -->
+  <section class="section" id="c4">
+    <span class="section-number">03 · C4 Model</span>
+    <h2>The C4 Framework — Four Levels of Zoom</h2>
+
+    <p>The C4 model, created by Simon Brown, is a hierarchical approach to documenting software architecture. Think of it like Google Maps: you zoom in for more detail, each level answering a more specific question.</p>
+
+    <ol class="steps">
+      <li><strong>Level 1 — System Context:</strong> Your system and everything outside it. Users, external services, third-party APIs. The "30,000-foot view." Audience: anyone — business stakeholders, PMs, new engineers.</li>
+      <li><strong>Level 2 — Container:</strong> The deployable units inside your system — web app, background worker, database, cache, message broker. Audience: developers and architects.</li>
+      <li><strong>Level 3 — Component:</strong> Inside a single container, the major structural blocks — Rails engines, service objects, modules. Audience: developers working on that container.</li>
+      <li><strong>Level 4 — Code:</strong> Class diagrams, ER diagrams. Usually auto-generated. Audience: developers in that component. (Often skipped — the code IS the documentation at this level.)</li>
+    </ol>
+
+    <div class="callout tip">
+      <p>In Rails apps, a "container" is typically: your Rails web process, Sidekiq worker process, PostgreSQL, Redis, and any external APIs you call. Start there for your L2 diagram.</p>
+    </div>
+
+    <h3>C4 Context Diagram (Level 1) — Mermaid</h3>
+    <pre><span class="comment">%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#2a6b8a'}}}%%</span>
+<span class="keyword">C4Context</span>
+  <span class="keyword">title</span> <span class="string">System Context — MyApp</span>
+
+  <span class="comment">%% Actors</span>
+  <span class="method">Person</span>(user, <span class="string">"End User"</span>, <span class="string">"Uses the web interface"</span>)
+  <span class="method">Person</span>(admin, <span class="string">"Admin"</span>, <span class="string">"Manages system via back-office"</span>)
+
+  <span class="comment">%% Your system — the box</span>
+  <span class="method">System</span>(myapp, <span class="string">"MyApp"</span>, <span class="string">"Rails monolith with background jobs"</span>)
+
+  <span class="comment">%% External systems</span>
+  <span class="method">System_Ext</span>(stripe, <span class="string">"Stripe"</span>, <span class="string">"Payment processing"</span>)
+  <span class="method">System_Ext</span>(sendgrid, <span class="string">"SendGrid"</span>, <span class="string">"Transactional email"</span>)
+  <span class="method">System_Ext</span>(s3, <span class="string">"AWS S3"</span>, <span class="string">"File storage"</span>)
+
+  <span class="comment">%% Relationships</span>
+  <span class="method">Rel</span>(user, myapp, <span class="string">"Uses"</span>, <span class="string">"HTTPS"</span>)
+  <span class="method">Rel</span>(admin, myapp, <span class="string">"Administers"</span>, <span class="string">"HTTPS"</span>)
+  <span class="method">Rel</span>(myapp, stripe, <span class="string">"Charges cards via"</span>, <span class="string">"HTTPS API"</span>)
+  <span class="method">Rel</span>(myapp, sendgrid, <span class="string">"Sends email via"</span>, <span class="string">"HTTPS API"</span>)
+  <span class="method">Rel</span>(myapp, s3, <span class="string">"Stores files in"</span>, <span class="string">"AWS SDK"</span>)</pre>
+
+    <div class="callout">
+      <p>Mermaid's C4 support is still maturing. For the most complete C4 output, use PlantUML with the <code>C4-PlantUML</code> library, which gives you boundary boxes, proper icon support, and correct layout.</p>
+    </div>
+
+    <h3>C4 Container Diagram (Level 2) — PlantUML</h3>
+    <pre><span class="comment">!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml</span>
+
+<span class="keyword">LAYOUT_WITH_LEGEND</span>()
+<span class="keyword">title</span> <span class="string">Container Diagram — MyApp</span>
+
+<span class="method">Person</span>(user, <span class="string">"User"</span>)
+<span class="method">Person</span>(admin, <span class="string">"Admin"</span>)
+
+<span class="method">System_Boundary</span>(myapp, <span class="string">"MyApp"</span>) {
+  <span class="method">Container</span>(web, <span class="string">"Rails App"</span>, <span class="string">"Ruby on Rails"</span>, <span class="string">"Handles HTTP, renders views, exposes API"</span>)
+  <span class="method">Container</span>(worker, <span class="string">"Sidekiq Workers"</span>, <span class="string">"Ruby/Sidekiq"</span>, <span class="string">"Processes background jobs"</span>)
+  <span class="method">ContainerDb</span>(db, <span class="string">"PostgreSQL"</span>, <span class="string">"PostgreSQL 15"</span>, <span class="string">"Primary data store"</span>)
+  <span class="method">ContainerDb</span>(cache, <span class="string">"Redis"</span>, <span class="string">"Redis 7"</span>, <span class="string">"Job queue, Rails cache, sessions"</span>)
+}
+
+<span class="method">Rel</span>(user, web, <span class="string">"HTTPS"</span>)
+<span class="method">Rel</span>(web, db, <span class="string">"ActiveRecord"</span>, <span class="string">"TCP"</span>)
+<span class="method">Rel</span>(web, cache, <span class="string">"Enqueues jobs, reads cache"</span>, <span class="string">"Redis protocol"</span>)
+<span class="method">Rel</span>(worker, db, <span class="string">"Reads/writes"</span>, <span class="string">"TCP"</span>)
+<span class="method">Rel</span>(worker, cache, <span class="string">"Dequeues jobs"</span>, <span class="string">"Redis protocol"</span>)</pre>
+  </section>
+
+  <!-- CONTEXT DIAGRAMS -->
+  <section class="section" id="context">
+    <span class="section-number">04 · Context Diagrams</span>
+    <h2>System Context — The High-Level View</h2>
+
+    <p>Context diagrams answer "what is this system, and who/what does it talk to?" They're the entry point for any new team member and the diagram most useful for non-technical stakeholders.</p>
+
+    <h3>Key Rules for Context Diagrams</h3>
+    <ul style="margin: 1rem 0 1rem 2rem; color: #2a2620; line-height: 2.2;">
+      <li>Your system is a <em>single box</em> — don't show internals</li>
+      <li>Label all relationships with the <em>protocol or technology</em></li>
+      <li>Include human actors (users, admins, external teams)</li>
+      <li>Show external systems — don't hide dependencies</li>
+      <li>Keep it to one page. Ruthlessly prune.</li>
+    </ul>
+
+    <h3>Simple Flowchart Context in Mermaid (no C4 library needed)</h3>
+    <pre><span class="keyword">flowchart</span> TB
+  <span class="comment">%% Style definitions</span>
+  <span class="keyword">classDef</span> system fill:#2a6b8a,color:#fff,stroke:#1a4b6a
+  <span class="keyword">classDef</span> external fill:#6a6a5a,color:#fff,stroke:#4a4a3a
+  <span class="keyword">classDef</span> person fill:#d4521a,color:#fff,stroke:#a43212
+
+  User([👤 End User]):::person
+  Admin([👤 Admin]):::person
+
+  App[<span class="string">"**MyApp**\nRails on Fly.io"</span>]:::system
+
+  Stripe[Stripe\nPayments]:::external
+  SG[SendGrid\nEmail]:::external
+  S3[AWS S3\nStorage]:::external
+  Twilio[Twilio\nSMS]:::external
+
+  User <span class="arrow">-->|HTTPS|</span> App
+  Admin <span class="arrow">-->|HTTPS|</span> App
+  App <span class="arrow">-->|REST API|</span> Stripe
+  App <span class="arrow">-->|SMTP/API|</span> SG
+  App <span class="arrow">-->|SDK|</span> S3
+  App <span class="arrow">-->|REST API|</span> Twilio</pre>
+
+    <div class="callout tip">
+      <p>Put context diagrams in your repo's root <code>README.md</code> or a top-level <code>docs/architecture/</code> directory. GitHub renders Mermaid blocks natively in markdown — no image exports needed.</p>
+    </div>
+  </section>
+
+  <!-- COMPONENT DIAGRAMS -->
+  <section class="section" id="component">
+    <span class="section-number">05 · Component Diagrams</span>
+    <h2>Component &amp; Dependency Diagrams</h2>
+
+    <p>Component diagrams zoom into a single container and show its internal structure — services, modules, classes, and how they depend on each other. In Rails, this is the layer where you document your service objects, query objects, presenters, and engines.</p>
+
+    <h3>Class Diagram in Mermaid</h3>
+    <p>Use class diagrams to show domain models and their relationships, including inheritance, composition, and associations.</p>
+
+    <pre><span class="keyword">classDiagram</span>
+  <span class="keyword">class</span> <span class="type">Order</span> {
+    +Integer id
+    +String status
+    +Decimal total_cents
+    +place()
+    +cancel()
+    +refund()
+  }
+
+  <span class="keyword">class</span> <span class="type">OrderItem</span> {
+    +Integer quantity
+    +Decimal unit_price
+    +subtotal() Decimal
+  }
+
+  <span class="keyword">class</span> <span class="type">Product</span> {
+    +String name
+    +String sku
+    +Boolean in_stock?
+  }
+
+  <span class="keyword">class</span> <span class="type">Customer</span> {
+    +String email
+    +lifetime_value() Decimal
+  }
+
+  <span class="keyword">class</span> <span class="type">PaymentProcessor</span> {
+    &lt;&lt;Service&gt;&gt;
+    +charge(order) Result
+    +refund(order) Result
+  }
+
+  Customer <span class="arrow">"1" --> "many"</span> Order : places
+  Order <span class="arrow">"1" *-- "many"</span> OrderItem : contains
+  OrderItem <span class="arrow">"many" --> "1"</span> Product : references
+  Order <span class="arrow">..></span> PaymentProcessor : uses</pre>
+
+    <h3>Module/Service Dependency Graph (Mermaid)</h3>
+    <p>Show how your Rails service objects, concerns, and modules depend on each other. This is invaluable for identifying circular dependencies and god objects.</p>
+
+    <pre><span class="keyword">flowchart</span> LR
+  <span class="comment">%% Controllers</span>
+  <span class="keyword">subgraph</span> Controllers
+    OC[OrdersController]
+    PC[PaymentsController]
+  <span class="keyword">end</span>
+
+  <span class="comment">%% Services</span>
+  <span class="keyword">subgraph</span> Services
+    OP[OrderPlacer]
+    PR[PaymentRefunder]
+    NS[NotificationService]
+    IS[InventoryService]
+  <span class="keyword">end</span>
+
+  <span class="comment">%% Models</span>
+  <span class="keyword">subgraph</span> Models
+    O[Order]
+    P[Product]
+    C[Customer]
+  <span class="keyword">end</span>
+
+  OC <span class="arrow">--></span> OP
+  PC <span class="arrow">--></span> PR
+  OP <span class="arrow">--></span> O
+  OP <span class="arrow">--></span> IS
+  OP <span class="arrow">--></span> NS
+  PR <span class="arrow">--></span> O
+  PR <span class="arrow">--></span> NS
+  IS <span class="arrow">--></span> P
+  NS <span class="arrow">--></span> C</pre>
+
+    <h3>Auto-Generating Rails Dependency Graphs</h3>
+    <p>The <code>rails-mermaid_erd</code> gem auto-generates ER diagrams from your ActiveRecord models. Install it and add a Rake task:</p>
+
+    <pre><span class="comment"># Gemfile (development group)</span>
+gem <span class="string">'rails-mermaid_erd'</span>, group: :development
+gem <span class="string">'railroady'</span>, group: :development  <span class="comment"># for class/model diagrams</span></pre>
+
+    <pre><span class="comment"># Generate ER diagram from your AR models</span>
+bundle exec rake erd:mermaid
+
+<span class="comment"># Railroady — generates SVG/dot class diagrams</span>
+bundle exec railroady -M | dot -Tsvg &gt; docs/diagrams/models.svg
+bundle exec railroady -C | dot -Tsvg &gt; docs/diagrams/controllers.svg</pre>
+  </section>
+
+  <!-- STATIC DIAGRAMS -->
+  <section class="section" id="static">
+    <span class="section-number">06 · Static Diagrams</span>
+    <h2>Static Diagrams — Structure &amp; Data</h2>
+
+    <p>Static diagrams describe things that exist, not things that happen. They answer: "What is the shape of this system?" Three types are most useful in Rails work.</p>
+
+    <h3>Entity Relationship (ER) Diagrams</h3>
+    <p>ER diagrams map your database schema. Mermaid's <code>erDiagram</code> type is excellent for this.</p>
+
+    <pre><span class="keyword">erDiagram</span>
+  CUSTOMERS {
+    int id <span class="label">PK</span>
+    string email
+    string name
+    timestamp created_at
+  }
+
+  ORDERS {
+    int id <span class="label">PK</span>
+    int customer_id <span class="label">FK</span>
+    string status
+    int total_cents
+    timestamp placed_at
+  }
+
+  ORDER_ITEMS {
+    int id <span class="label">PK</span>
+    int order_id <span class="label">FK</span>
+    int product_id <span class="label">FK</span>
+    int quantity
+    int unit_price_cents
+  }
+
+  PRODUCTS {
+    int id <span class="label">PK</span>
+    string name
+    string sku
+    boolean active
+  }
+
+  CUSTOMERS <span class="arrow">||--o{</span> ORDERS : places
+  ORDERS <span class="arrow">||--|{</span> ORDER_ITEMS : contains
+  PRODUCTS <span class="arrow">||--o{</span> ORDER_ITEMS : referenced_in</pre>
+
+    <div class="callout tip">
+      <p>You can auto-generate Mermaid ER diagrams from your Rails schema using <code>rails-mermaid_erd</code>. Run it as part of your migration workflow so diagrams stay current.</p>
+    </div>
+
+    <h3>State Machine Diagrams</h3>
+    <p>Document <code>AASM</code> or <code>state_machines-activerecord</code> transitions explicitly. State diagrams make edge cases visible that are easy to miss in code.</p>
+
+    <pre><span class="keyword">stateDiagram-v2</span>
+  [*] <span class="arrow">--></span> pending : Order created
+
+  pending <span class="arrow">--></span> payment_processing : User submits payment
+  payment_processing <span class="arrow">--></span> paid : Payment succeeds
+  payment_processing <span class="arrow">--></span> payment_failed : Payment declined
+
+  paid <span class="arrow">--></span> fulfilling : Inventory confirmed
+  paid <span class="arrow">--></span> refunded : Admin refunds
+
+  fulfilling <span class="arrow">--></span> shipped : Label created
+  shipped <span class="arrow">--></span> delivered : Carrier confirms
+  shipped <span class="arrow">--></span> lost : 30-day timeout
+
+  payment_failed <span class="arrow">--></span> pending : User retries
+  payment_failed <span class="arrow">--></span> cancelled : Abandoned (48h)
+
+  delivered <span class="arrow">--></span> [*]
+  cancelled <span class="arrow">--></span> [*]
+  refunded <span class="arrow">--></span> [*]
+
+  <span class="keyword">note</span> right of fulfilling : Triggers FulfillmentJob</pre>
+
+    <h3>Database Schema Visualization (rake task)</h3>
+    <pre><span class="comment"># lib/tasks/diagrams.rake</span>
+<span class="keyword">namespace</span> :diagrams <span class="keyword">do</span>
+  <span class="method">desc</span> <span class="string">"Generate Mermaid ER diagram from current schema"</span>
+  task erd: :environment <span class="keyword">do</span>
+    output = MermaidErd.generate
+    File.write(<span class="string">"docs/diagrams/erd.md"</span>, output)
+    puts <span class="string">"ER diagram written to docs/diagrams/erd.md"</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="comment"># Hook into db:migrate automatically</span>
+<span class="keyword">if</span> Rails.env.development?
+  Rake::Task[<span class="string">"db:migrate"</span>].enhance <span class="keyword">do</span>
+    Rake::Task[<span class="string">"diagrams:erd"</span>].invoke
+  <span class="keyword">end</span>
+<span class="keyword">end</span></pre>
+  </section>
+
+  <!-- RUNTIME -->
+  <section class="section" id="runtime">
+    <span class="section-number">07 · Runtime &amp; Event Storming</span>
+    <h2>Runtime Diagrams &amp; Event Storming</h2>
+
+    <p>Runtime diagrams capture what happens over time — the choreography of a request, the sequence of messages, the order of side effects. These are the diagrams developers actually reach for when debugging a bug they can't reproduce.</p>
+
+    <h3>Sequence Diagrams</h3>
+    <p>Sequence diagrams are the workhorse of runtime documentation. Use them for API request flows, webhook handlers, multi-service orchestration, and anywhere the order of operations matters.</p>
+
+    <pre><span class="keyword">sequenceDiagram</span>
+  <span class="keyword">autonumber</span>
+  <span class="keyword">actor</span> U as User
+  <span class="keyword">participant</span> C as OrdersController
+  <span class="keyword">participant</span> OP as OrderPlacer
+  <span class="keyword">participant</span> DB as PostgreSQL
+  <span class="keyword">participant</span> Q as Redis/Sidekiq Queue
+
+  U->>C: POST /orders
+  C->>OP: call(order_params)
+
+  OP->>DB: BEGIN transaction
+  OP->>DB: INSERT order
+  OP->>DB: UPDATE inventory (lock rows)
+
+  alt Inventory available
+    OP->>DB: COMMIT
+    OP->>Q: Enqueue PaymentJob(order_id)
+    OP->>C: Success(order)
+    C->>U: 201 Created
+  else Out of stock
+    OP->>DB: ROLLBACK
+    OP->>C: Failure(:out_of_stock)
+    C->>U: 422 Unprocessable
+  end</pre>
+
+    <h3>Event Storming in Mermaid</h3>
+    <p>Event storming is a workshop technique, but you can capture its output as diagrams. The key notation: domain events (things that happened, past tense), commands (what triggered them), and read models (what queries consume them).</p>
+
+    <p>Use a horizontal timeline flowchart to represent the event flow:</p>
+
+    <pre><span class="keyword">flowchart</span> LR
+  <span class="comment">%% Color coding via classDef mimics sticky notes</span>
+  <span class="keyword">classDef</span> event fill:#d4521a,color:#fff,stroke:none
+  <span class="keyword">classDef</span> command fill:#2a6b8a,color:#fff,stroke:none
+  <span class="keyword">classDef</span> policy fill:#7a5a9a,color:#fff,stroke:none
+  <span class="keyword">classDef</span> readmodel fill:#2a7a4a,color:#fff,stroke:none
+  <span class="keyword">classDef</span> actor fill:#c8a000,color:#000,stroke:none
+
+  <span class="comment">%% Commands (blue)</span>
+  PlaceOrder[Place Order]:::command
+  ProcessPayment[Process Payment]:::command
+  FulfillOrder[Fulfill Order]:::command
+
+  <span class="comment">%% Events (orange)</span>
+  OrderPlaced([Order Placed]):::event
+  PaymentProcessed([Payment Processed]):::event
+  PaymentFailed([Payment Failed]):::event
+  OrderFulfilled([Order Fulfilled]):::event
+  OrderShipped([Order Shipped]):::event
+
+  <span class="comment">%% Policies (purple) — "when X then Y"</span>
+  Policy1{When OrderPlaced\nthen start payment}:::policy
+  Policy2{When PaymentProcessed\nthen begin fulfillment}:::policy
+
+  <span class="comment">%% Read models (green)</span>
+  OrderDash[(Order Dashboard)]:::readmodel
+
+  <span class="comment">%% Flow</span>
+  PlaceOrder <span class="arrow">--></span> OrderPlaced
+  OrderPlaced <span class="arrow">--></span> Policy1
+  Policy1 <span class="arrow">--></span> ProcessPayment
+  ProcessPayment <span class="arrow">--></span> PaymentProcessed
+  ProcessPayment <span class="arrow">--></span> PaymentFailed
+  PaymentProcessed <span class="arrow">--></span> Policy2
+  Policy2 <span class="arrow">--></span> FulfillOrder
+  FulfillOrder <span class="arrow">--></span> OrderFulfilled
+  OrderFulfilled <span class="arrow">--></span> OrderShipped
+  OrderPlaced <span class="arrow">--></span> OrderDash
+  PaymentProcessed <span class="arrow">--></span> OrderDash</pre>
+
+    <div class="callout">
+      <p>Event storming diagrams are most useful when created collaboratively. Use the Mermaid format to capture the session output, not to run the session itself. Miro or physical stickies for the workshop; Mermaid for the permanent record.</p>
+    </div>
+  </section>
+
+  <!-- ASYNC -->
+  <section class="section" id="async">
+    <span class="section-number">08 · Async Operations</span>
+    <h2>Representing Sidekiq &amp; Async Jobs</h2>
+
+    <p>Asynchronous operations are where most Rails diagrams fall apart — they're invisible in standard request/response flows. The trick is making the queue explicit and showing the temporal gap between enqueue and execution.</p>
+
+    <h3>Key Conventions for Async Flows</h3>
+    <ul style="margin: 1rem 0 1rem 2rem; color: #2a2620; line-height: 2.2;">
+      <li>Use <strong>dashed arrows</strong> for async/deferred operations</li>
+      <li>Label the queue name explicitly: <code>-->>|sidekiq:critical|</code></li>
+      <li>Show Sidekiq as a separate participant with a clock indicator</li>
+      <li>Distinguish enqueue-time from execution-time visually</li>
+      <li>Show retry behavior and dead-letter queues for critical jobs</li>
+    </ul>
+
+    <h3>Sidekiq Job Flow — Sequence Diagram</h3>
+    <pre><span class="keyword">sequenceDiagram</span>
+  <span class="keyword">participant</span> Web as Rails Web Process
+  <span class="keyword">participant</span> Redis as Redis Queue
+  <span class="keyword">participant</span> SK as Sidekiq Worker
+  <span class="keyword">participant</span> Stripe as Stripe API
+  <span class="keyword">participant</span> DB as PostgreSQL
+  <span class="keyword">participant</span> Email as SendGrid
+
+  <span class="keyword">note over</span> Web,Redis: Enqueue phase (synchronous, fast)
+  Web->>Redis: LPUSH sidekiq:critical PaymentJob{order_id: 42}
+  Redis-->>Web: OK (enqueued)
+  Web-->>Web: Return 201 to user immediately
+
+  <span class="keyword">note over</span> Redis,SK: Some time later...
+
+  SK->>Redis: BRPOP sidekiq:critical
+  Redis-->>SK: PaymentJob payload
+
+  <span class="keyword">note over</span> SK,DB: Execution phase (async, can fail + retry)
+  SK->>DB: SELECT * FROM orders WHERE id=42 FOR UPDATE
+  SK->>Stripe: POST /v1/charges
+  Stripe-->>SK: {status: "succeeded"}
+  SK->>DB: UPDATE orders SET status='paid'
+  SK->>Email: POST /v3/mail/send (receipt)
+
+  <span class="keyword">rect</span> rgba(212,82,26,0.08)
+    <span class="keyword">note over</span> SK,Redis: On failure: Sidekiq retries with exponential backoff
+    SK->>Redis: LPUSH sidekiq:retry (job + retry_count + next_run_at)
+  <span class="keyword">end</span></pre>
+
+    <h3>Job Dependency DAG</h3>
+    <p>When jobs trigger other jobs, document the dependency graph. This prevents circular chains and makes the async architecture explicit.</p>
+
+    <pre><span class="keyword">flowchart</span> TD
+  <span class="keyword">classDef</span> job fill:#1a1a1a,color:#e8dcc8,stroke:#3a3a3a
+  <span class="keyword">classDef</span> trigger fill:#2a6b8a,color:#fff,stroke:none
+  <span class="keyword">classDef</span> queue stroke:#d4521a,stroke-width:2px
+
+  <span class="comment">%% Trigger</span>
+  WebReq[HTTP Request\nPOST /orders]:::trigger
+
+  <span class="comment">%% Job graph</span>
+  J1[PaymentJob\nqueue: critical]:::job
+  J2[FulfillmentJob\nqueue: default]:::job
+  J3[EmailReceiptJob\nqueue: low]:::job
+  J4[InventoryUpdateJob\nqueue: default]:::job
+  J5[AnalyticsTrackJob\nqueue: low]:::job
+
+  WebReq <span class="arrow">-->|enqueues|</span> J1
+  J1 <span class="arrow">-->|on success: enqueues|</span> J2
+  J1 <span class="arrow">-->|always enqueues|</span> J3
+  J2 <span class="arrow">-->|enqueues|</span> J4
+  J1 <span class="arrow">-->|enqueues|</span> J5
+
+  <span class="comment">%% Dead letter</span>
+  DLQ[(Dead Letter Queue)]
+  J1 <span class="arrow">-.->|after 25 retries|</span> DLQ
+  J2 <span class="arrow">-.->|after 25 retries|</span> DLQ</pre>
+
+    <h3>Documenting Scheduled Jobs (Cron)</h3>
+    <pre><span class="keyword">flowchart</span> LR
+  <span class="keyword">classDef</span> cron fill:#7a5a9a,color:#fff,stroke:none
+  <span class="keyword">classDef</span> job fill:#1a1a1a,color:#e8dcc8,stroke:#3a3a3a
+
+  C1[⏰ Daily 2am UTC]:::cron
+  C2[⏰ Every 15min]:::cron
+  C3[⏰ Weekly Mon 6am]:::cron
+
+  J1[ExpiredSessionCleanupJob]:::job
+  J2[CacheWarmingJob]:::job
+  J3[WeeklyReportJob]:::job
+
+  C1 <span class="arrow">--></span> J1
+  C2 <span class="arrow">--></span> J2
+  C3 <span class="arrow">--></span> J3</pre>
+
+    <div class="callout tip">
+      <p>For complex Sidekiq setups, document your queue priorities and concurrency configuration explicitly in a diagram. Show how many threads each queue gets and why — this is rarely documented and constantly confusing for new team members.</p>
+    </div>
+  </section>
+
+  <!-- AUTO-GENERATION -->
+  <section class="section" id="autogen">
+    <span class="section-number">09 · Auto-generation</span>
+    <h2>Keeping Diagrams Fresh — Auto-generation</h2>
+
+    <p>Diagrams are only useful if they're accurate. Manual updates don't scale. Here's how to wire up your Rails app so diagrams regenerate automatically when the code changes.</p>
+
+    <h3>Gems Worth Installing</h3>
+    <table class="compare-table">
+      <thead>
+        <tr><th>Gem</th><th>Generates</th><th>Format</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>rails-mermaid_erd</code></td>
+          <td>ER diagram from AR models</td>
+          <td>Mermaid markdown</td>
+        </tr>
+        <tr>
+          <td><code>railroady</code></td>
+          <td>Model &amp; controller class diagrams</td>
+          <td>SVG via Graphviz</td>
+        </tr>
+        <tr>
+          <td><code>annotate</code></td>
+          <td>Schema comments on models/specs</td>
+          <td>Ruby comments</td>
+        </tr>
+        <tr>
+          <td><code>bullet</code></td>
+          <td>N+1 warnings (feeds into docs)</td>
+          <td>Logs</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Rake Task: Regenerate All Diagrams</h3>
+    <pre><span class="comment"># lib/tasks/diagrams.rake</span>
+<span class="keyword">namespace</span> :diagrams <span class="keyword">do</span>
+  DIAGRAM_DIR = Rails.root.join(<span class="string">"docs/diagrams"</span>)
+
+  <span class="method">desc</span> <span class="string">"Regenerate all architecture diagrams"</span>
+  task all: [:erd, :models, :controllers]
+
+  task erd: :environment <span class="keyword">do</span>
+    puts <span class="string">"→ Generating ER diagram..."</span>
+    output = MermaidErd.generate
+    File.write(DIAGRAM_DIR.join(<span class="string">"erd.md"</span>), output)
+  <span class="keyword">end</span>
+
+  task models: :environment <span class="keyword">do</span>
+    puts <span class="string">"→ Generating model diagram..."</span>
+    <span class="keyword">sh</span> <span class="string">"bundle exec railroady -M --transitive |
+         dot -Tsvg -o #{DIAGRAM_DIR}/models.svg"</span>
+  <span class="keyword">end</span>
+
+  task controllers: :environment <span class="keyword">do</span>
+    puts <span class="string">"→ Generating controller diagram..."</span>
+    <span class="keyword">sh</span> <span class="string">"bundle exec railroady -C |
+         dot -Tsvg -o #{DIAGRAM_DIR}/controllers.svg"</span>
+  <span class="keyword">end</span>
+
+  <span class="comment"># Hook ER generation into migrations</span>
+  Rake::Task[<span class="string">"db:migrate"</span>].enhance { Rake::Task[<span class="string">"diagrams:erd"</span>].invoke }
+<span class="keyword">end</span></pre>
+
+    <h3>Git Hook: Regenerate on Schema Change</h3>
+    <pre><span class="comment">#!/bin/bash
+# .git/hooks/post-merge (also add to post-checkout)</span>
+
+CHANGED=$(git diff HEAD@{1} HEAD --name-only)
+
+if echo "$CHANGED" | grep -q "db/schema.rb"; then
+  echo "🔄 Schema changed — regenerating diagrams..."
+  bundle exec rake diagrams:erd
+  git add docs/diagrams/erd.md
+  git commit -m "chore: regenerate ER diagram after schema change" --no-verify
+fi</pre>
+
+    <h3>Guard Integration (watch for file changes in dev)</h3>
+    <pre><span class="comment"># Guardfile</span>
+guard :rake, task: <span class="string">'diagrams:erd'</span> <span class="keyword">do</span>
+  watch(<span class="string">'db/schema.rb'</span>)
+<span class="keyword">end</span>
+
+guard :rake, task: <span class="string">'diagrams:models'</span> <span class="keyword">do</span>
+  watch(%r{^app/models/.+\.rb$})
+<span class="keyword">end</span></pre>
+
+    <h3>CI/CD: GitHub Actions</h3>
+    <pre><span class="comment"># .github/workflows/diagrams.yml</span>
+name: <span class="string">Regenerate Diagrams</span>
+on:
+  push:
+    paths: [<span class="string">'db/schema.rb'</span>, <span class="string">'app/models/**'</span>]
+
+jobs:
+  diagrams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Install Graphviz
+        run: sudo apt-get install -y graphviz
+
+      - name: Regenerate diagrams
+        run: bundle exec rake diagrams:all
+
+      - name: Commit updated diagrams
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: <span class="string">"chore: auto-regenerate architecture diagrams [skip ci]"</span>
+          file_pattern: <span class="string">'docs/diagrams/**'</span></pre>
+  </section>
+
+  <!-- WORKFLOW -->
+  <section class="section" id="workflow">
+    <span class="section-number">10 · Workflow</span>
+    <h2>A Practical Documentation Workflow</h2>
+
+    <p>Here's a concrete workflow for adding diagrams to a feature from scratch.</p>
+
+    <ol class="steps">
+      <li><strong>New feature branch:</strong> Before writing code, sketch the C4 L2 container view and a sequence diagram for the happy path. Writing the diagram first forces architectural decisions up front. This is design-by-diagram.</li>
+      <li><strong>During implementation:</strong> Keep the sequence diagram as a living doc in the PR description. Update it as the implementation diverges from the plan. (It will. That's fine.)</li>
+      <li><strong>New model or migration?</strong> Run <code>rake diagrams:erd</code> and commit the updated ER diagram in the same PR as the migration. Reviewers see schema changes and diagram together.</li>
+      <li><strong>Async job added?</strong> Add it to the job dependency graph. If it's a new Sidekiq class, add a sequence diagram showing its enqueue/execute flow.</li>
+      <li><strong>State machine change?</strong> Update the state diagram in the same commit as the AASM/state_machines change. Never let these drift.</li>
+      <li><strong>PR review:</strong> Add <code>docs/diagrams/</code> as a required review path in CODEOWNERS so architecture changes get architectural review.</li>
+      <li><strong>Post-merge:</strong> CI auto-regenerates any auto-generated diagrams (ER, class diagrams) and commits them back. Hand-maintained diagrams (context, sequence) are committed manually.</li>
+    </ol>
+
+    <h3>Directory Structure</h3>
+    <pre>docs/
+└── diagrams/
+    ├── README.md              <span class="comment"># Index with embedded diagrams</span>
+    ├── context.md             <span class="comment"># C4 L1 — system context (manual)</span>
+    ├── containers.md          <span class="comment"># C4 L2 — containers (manual)</span>
+    ├── erd.md                 <span class="comment"># ER diagram (auto-generated)</span>
+    ├── models.svg             <span class="comment"># Class diagram (auto-generated)</span>
+    ├── state-machines/
+    │   ├── order.md           <span class="comment"># Order state machine</span>
+    │   └── subscription.md   <span class="comment"># Subscription state machine</span>
+    ├── sequences/
+    │   ├── checkout-flow.md   <span class="comment"># Checkout sequence diagram</span>
+    │   └── webhook-flow.md    <span class="comment"># Stripe webhook handling</span>
+    └── jobs/
+        └── job-dependencies.md <span class="comment"># Sidekiq job graph</span></pre>
+
+    <div class="callout tip">
+      <p>Add a <code>docs/diagrams/README.md</code> that embeds all your Mermaid diagrams inline. GitHub renders them beautifully, giving you a visual architecture dashboard that any team member can browse without special tooling.</p>
+    </div>
+
+    <hr class="hr">
+
+    <h3>The Golden Rule</h3>
+    <p style="font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 600; line-height: 1.5; color: var(--ink); border-left: 4px solid var(--accent); padding-left: 1.25rem; margin: 2rem 0;">
+      A diagram that requires manual updates will become wrong.<br>
+      Auto-generate everything you can. Version control everything else.<br>
+      The best diagram is the one that exists.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <div>
+    <strong>Visual Documentation for Rails</strong><br>
+    Mermaid · PlantUML · C4 · Structurizr
+  </div>
+  <div style="text-align: right;">
+    Diagrams as Code<br>
+    Keep them in the repo
+  </div>
+</footer>
+
+</body>
+</html>
