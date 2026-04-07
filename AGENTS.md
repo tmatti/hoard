@@ -2,7 +2,7 @@ Start by creating a new folder for your work with an appropriate name.
 
 Create a notes.md file in that folder and append notes to it as you work, tracking what you tried and anything you learned along the way.
 
-Build a README.md report at the end of the investigation.
+Create index.html at the end of the investigation. This will be an interactive report in html/css/js. Break sections into a tabbed dashboard style ux rather than having one long page. Tabs on left side. Dark mode preferred. Avoid wacky fonts.
 
 Your final commit should include just that folder and selected items from its contents:
 

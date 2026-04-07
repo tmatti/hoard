@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ActiveRecord Cheat Sheet</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ruby.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --purple: #bc8cff;
+    --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  header .badge {
+    font-size: 11px;
+    font-family: var(--mono);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  nav::-webkit-scrollbar { display: none; }
+
+  nav button {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 10px 16px;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  nav button:hover { color: var(--text); }
+
+  nav button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-content { display: none; padding: 24px; max-width: 1100px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 24px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 16px 0 4px;
+  }
+
+  p { color: var(--text-muted); margin-bottom: 8px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .card h4 { margin-top: 0; }
+
+  .code-block {
+    position: relative;
+    margin: 6px 0 12px;
+  }
+
+  .code-block pre {
+    background: var(--bg) !important;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 40px 12px 14px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+    font-family: var(--mono);
+  }
+
+  .code-block pre code { background: none !important; padding: 0 !important; font-size: inherit; }
+
+  .copy-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--font);
+    padding: 2px 8px;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .copy-btn:hover { color: var(--text); background: var(--border); }
+  .copy-btn.copied { color: var(--accent2); }
+
+  .callout {
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 8px 0 12px;
+    border-left: 3px solid;
+    font-size: 13px;
+  }
+
+  .callout.warn { background: rgba(210,153,34,0.08); border-color: var(--warn); color: var(--warn); }
+  .callout.danger { background: rgba(248,81,73,0.08); border-color: var(--danger); color: var(--danger); }
+  .callout.info { background: rgba(88,166,255,0.08); border-color: var(--accent); color: var(--accent); }
+  .callout.good { background: rgba(63,185,80,0.08); border-color: var(--accent2); color: var(--accent2); }
+  .callout strong { font-weight: 600; }
+  .callout code { font-family: var(--mono); font-size: 12px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 16px;
+    font-size: 13px;
+  }
+
+  th {
+    background: var(--bg3);
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+
+  td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  td code, th code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg3);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--purple);
+  }
+
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 1px 7px;
+    border-radius: 20px;
+    margin: 1px;
+  }
+
+  .pill.red { background: rgba(248,81,73,0.15); color: var(--danger); border: 1px solid rgba(248,81,73,0.3); }
+  .pill.green { background: rgba(63,185,80,0.15); color: var(--accent2); border: 1px solid rgba(63,185,80,0.3); }
+  .pill.blue { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+  .pill.yellow { background: rgba(210,153,34,0.15); color: var(--warn); border: 1px solid rgba(210,153,34,0.3); }
+
+  .section-intro { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+
+  details { margin: 8px 0; }
+  summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 13px;
+    padding: 4px 0;
+    user-select: none;
+  }
+  summary:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ActiveRecord Cheat Sheet</h1>
+  <span class="badge">Rails 7+</span>
+  <span class="badge">Advanced</span>
+</header>
+
+<nav id="nav">
+  <button class="active" onclick="show('querying', this)">Querying</button>
+  <button onclick="show('perf', this)">Performance &amp; Gotchas</button>
+  <button onclick="show('eager', this)">Eager Loading</button>
+  <button onclick="show('associations', this)">Associations</button>
+  <button onclick="show('scopes', this)">Scopes</button>
+  <button onclick="show('callbacks', this)">Callbacks</button>
+  <button onclick="show('validations', this)">Validations</button>
+  <button onclick="show('transactions', this)">Transactions</button>
+  <button onclick="show('migrations', this)">Migrations</button>
+</nav>
+
+<!-- ===================== QUERYING ===================== -->
+<div id="querying" class="tab-content active">
+  <h2>Querying</h2>
+  <p class="section-intro">All query methods return an <code>ActiveRecord::Relation</code> (lazy) until enumerated. Chaining is free.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>Basic Finders</h4>
+      <div class="code-block"><pre><code class="language-ruby">User.find(1)                    # raises if not found
+User.find_by(email: "x@y.com") # nil if not found
+User.find_by!(email: "x@y.com")# raises if not found
+User.first / .last / .take
+User.find([1, 2, 3])            # returns array, raises on missing
+User.find_or_initialize_by(slug: "foo")
+User.find_or_create_by(slug: "foo")</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>where / where.not</h4>
+      <div class="code-block"><pre><code class="language-ruby">User.where(active: true)
+User.where(role: ["admin", "mod"])     # IN (...)
+User.where(created_at: 1.week.ago..)  # open-ended range (Rails 6+)
+User.where(created_at: 1.week.ago..Time.now)
+User.where.not(role: nil)
+User.where.not(role: "guest")
+User.where("score > ?", 100)           # use ? placeholders
+User.where("name ILIKE ?", "%#{q}%")   # safe interpolation
+User.where(users: { active: true })    # table-qualified</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout danger"><strong>Never:</strong> <code>.where("name = '#{params[:name]}'")</code> — SQL injection</div>
+    </div>
+
+    <div class="card">
+      <h4>select / pluck / pick</h4>
+      <div class="code-block"><pre><code class="language-ruby"># select returns AR objects with only those attrs loaded
+User.select(:id, :email)
+
+# pluck returns plain array — no model instantiation
+User.pluck(:email)                  # ["a@b.com", ...]
+User.pluck(:id, :email)             # [[1, "a@b.com"], ...]
+
+# pick = pluck.first, single row
+User.where(id: 5).pick(:email)      # "a@b.com"
+
+# ids shortcut
+User.where(active: true).ids        # [1, 2, 3]</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Aggregates</h4>
+      <div class="code-block"><pre><code class="language-ruby">User.count
+User.count(:email)          # counts non-null emails
+User.distinct.count(:role)
+Order.sum(:amount)
+Order.average(:amount)
+Order.minimum(:amount)
+Order.maximum(:amount)
+Order.group(:status).count  # => {"pending"=>5, "paid"=>12}
+Order.group(:status).sum(:amount)
+Order.having("count(*) > 5").group(:user_id).count</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Ordering / Limiting</h4>
+      <div class="code-block"><pre><code class="language-ruby">User.order(:name)
+User.order(name: :desc)
+User.order("name DESC NULLS LAST")
+User.reorder(:email)           # replaces any prior order
+User.unscope(:order)           # strips order entirely
+User.limit(10).offset(20)
+User.in_order_of(:status, ["active","pending","closed"])</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Existence &amp; Predicates</h4>
+      <div class="code-block"><pre><code class="language-ruby">User.exists?(active: true)     # SELECT 1 LIMIT 1
+User.where(role: "admin").any? # same as exists?, fires query
+User.where(role: "admin").none?# fires query
+User.where(role: "admin").one? # fires query
+
+# loaded? check matters:
+users = User.all
+users.loaded? # false — iterating triggers load
+users.to_a    # triggers load
+users.loaded? # true — any? / none? / count use in-memory</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Batch Iteration</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Never: User.all.each — loads everything into memory
+User.find_each(batch_size: 500) { |u| ... }  # yields one at a time
+User.find_in_batches(batch_size: 500) { |batch| ... } # yields arrays
+User.in_batches(of: 500) { |rel| rel.update_all(active: false) }
+
+# Custom ordering / start with find_each:
+User.where(active: true).find_each(start: 1000, finish: 5000) { |u| ... }
+
+# Ordering gotcha: find_each ignores .order() — always uses PK ASC
+# Use in_batches if you need custom order control</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout warn"><strong>find_each ignores .order()</strong> — it forces <code>ORDER BY id</code> internally</div>
+    </div>
+
+    <div class="card">
+      <h4>Raw SQL &amp; Arel</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Escape and inject literals safely
+User.where("created_at > ?", 1.day.ago)
+User.where("role = :role", role: "admin")
+
+# Arbitrary SQL fragments
+User.from("users TABLESAMPLE SYSTEM(10)")
+User.select("*, rank() OVER (ORDER BY score DESC) as rank")
+
+# Arel (avoid if SQL strings work fine)
+t = User.arel_table
+User.where(t[:score].gt(100).and(t[:active].eq(true)))
+
+# Named bind params (sanitized)
+User.where("name = :name AND role = :role", name: n, role: r)</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Subqueries &amp; CTEs</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Subquery via relation
+recent = Order.where("created_at > ?", 1.week.ago).select(:user_id)
+User.where(id: recent)   # WHERE id IN (SELECT user_id FROM ...)
+
+# FROM subquery
+subq = Order.group(:user_id).select("user_id, sum(amount) as total")
+User.joins("JOIN (#{subq.to_sql}) o ON o.user_id = users.id")
+    .select("users.*, o.total")
+
+# CTE (Rails 7.1+)
+User.with(actives: User.where(active: true))
+    .joins("JOIN actives ON actives.id = users.id")</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Misc Useful Methods</h4>
+      <div class="code-block"><pre><code class="language-ruby">User.none                       # returns empty relation, chainable
+User.all.merge(scope)           # merge two relations
+User.unscoped                   # strips ALL default_scopes
+User.readonly                   # marks records as read-only
+User.lock                       # SELECT ... FOR UPDATE
+User.lock("LOCK IN SHARE MODE") # MySQL share lock
+User.distinct
+User.group(:role).distinct.count(:email)
+User.where(...).to_sql          # debug: see generated SQL
+User.where(...).explain         # runs EXPLAIN on query</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== PERFORMANCE & GOTCHAS ===================== -->
+<div id="perf" class="tab-content">
+  <h2>Performance &amp; Gotchas</h2>
+  <p class="section-intro">The most important tab. These are the patterns that silently wreck production.</p>
+
+  <h3>N+1 Queries</h3>
+  <div class="grid">
+    <div class="card">
+      <h4>The Classic N+1</h4>
+      <div class="code-block"><pre><code class="language-ruby"># BAD — fires 1 query for posts, then 1 per post for user
+posts = Post.all
+posts.each { |p| puts p.user.name }  # N+1!
+
+# GOOD
+posts = Post.includes(:user).all
+posts.each { |p| puts p.user.name }  # 2 queries total
+
+# ALSO GOOD when filtering on association
+Post.joins(:user).where(users: { active: true })
+# (don't use includes if you're only filtering, not loading)</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Detecting N+1</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Gemfile (development/test only)
+gem "bullet"
+
+# config/environments/development.rb
+config.after_initialize do
+  Bullet.enable        = true
+  Bullet.alert         = true
+  Bullet.rails_logger  = true
+end
+
+# Or: strict_loading to raise in dev/test
+# config/application.rb
+config.active_record.strict_loading_by_default = true
+
+# Per-query opt-out
+Post.strict_loading.includes(:user)    # explicit eager load required
+Post.strict_loading(false).all         # opt out</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+  </div>
+
+  <h3>count vs size vs length</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby">posts = Post.where(active: true)
+
+posts.count   # always fires SELECT COUNT(*) — even if already loaded
+posts.length  # loads all records into memory (to_a), returns array.length
+posts.size    # smart: COUNT if not loaded, length if already loaded
+
+# Best practice: use .size unless you specifically need fresh DB count
+# If the relation is already loaded (posts.loaded? == true), size is free
+
+# Counter cache is better than any of these for has_many counts:
+# add_column :users, :posts_count, :integer, default: 0
+# has_many :posts, counter_cache: true
+user.posts.size  # reads posts_count column, no query!</code></pre><button class="copy-btn">copy</button></div>
+    <div class="callout warn"><strong>posts.count</strong> always fires a query, even after you've loaded the relation. Use <strong>.size</strong> by default.</div>
+  </div>
+
+  <h3>exists? vs any? vs present? vs empty?</h3>
+  <div class="card">
+    <table>
+      <tr><th>Method</th><th>SQL fired</th><th>When already loaded</th><th>Use when</th></tr>
+      <tr><td><code>exists?</code></td><td>SELECT 1 LIMIT 1</td><td>still fires query</td><td>checking existence cheaply</td></tr>
+      <tr><td><code>any?</code></td><td>SELECT 1 LIMIT 1</td><td>uses in-memory if loaded</td><td>general purpose</td></tr>
+      <tr><td><code>none?</code></td><td>SELECT 1 LIMIT 1</td><td>uses in-memory if loaded</td><td>general purpose</td></tr>
+      <tr><td><code>empty?</code></td><td>SELECT COUNT(*)</td><td>uses in-memory if loaded</td><td>avoid, prefer none?</td></tr>
+      <tr><td><code>present?</code></td><td>loads all records</td><td>uses in-memory if loaded</td><td>never for relations</td></tr>
+      <tr><td><code>blank?</code></td><td>loads all records</td><td>uses in-memory if loaded</td><td>never for relations</td></tr>
+    </table>
+    <div class="callout danger"><strong>Never</strong> use <code>present?</code> or <code>blank?</code> on an AR relation — they call <code>to_a</code> first, loading all records.</div>
+  </div>
+
+  <h3>pluck vs select vs map</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby"># pluck: returns plain Ruby array, no AR objects instantiated
+User.where(active: true).pluck(:email)
+# SELECT "users"."email" FROM "users" WHERE active = true
+
+# select: returns AR objects (with only those attrs loaded)
+User.where(active: true).select(:id, :email)
+# Useful when you need an AR relation (e.g., for further chaining)
+
+# map: loads full AR objects first, THEN maps
+User.where(active: true).map(&:email)
+# SELECT * FROM users — wasteful if you only need email
+
+# Rule of thumb:
+# - Need plain data?           → pluck
+# - Need AR objects?           → select
+# - Transforming loaded data?  → map (fine if already loaded)</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+
+  <h3>update_all / delete_all / destroy_all</h3>
+  <div class="card">
+    <table>
+      <tr><th>Method</th><th>SQL</th><th>Callbacks</th><th>Validations</th><th>Associations</th></tr>
+      <tr><td><code>update_all</code></td><td>UPDATE ... WHERE</td><td><span class="pill red">skipped</span></td><td><span class="pill red">skipped</span></td><td>not touched</td></tr>
+      <tr><td><code>delete_all</code></td><td>DELETE ... WHERE</td><td><span class="pill red">skipped</span></td><td><span class="pill red">skipped</span></td><td><span class="pill red">not cascaded</span></td></tr>
+      <tr><td><code>destroy_all</code></td><td>loads + DELETE per row</td><td><span class="pill green">runs</span></td><td>n/a</td><td><span class="pill green">cascaded</span></td></tr>
+    </table>
+    <div class="code-block"><pre><code class="language-ruby"># update_all — single SQL, no callbacks, no updated_at by default
+Post.where(draft: true).update_all(published: false)
+# updated_at NOT touched automatically — pass it explicitly:
+Post.where(draft: true).update_all(published: false, updated_at: Time.current)
+
+# delete_all — no dependent: :destroy cascade, no callbacks
+Post.where(user_id: 5).delete_all   # leaves orphaned comments!
+
+# destroy_all — fires one DELETE per record (slow for large sets)
+Post.where(user_id: 5).destroy_all  # runs callbacks, cascades deps</code></pre><button class="copy-btn">copy</button></div>
+    <div class="callout warn"><code>update_all</code> does NOT auto-update <code>updated_at</code>. You must include it manually.</div>
+  </div>
+
+  <h3>destroy vs delete</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby">user.destroy   # loads record, runs before_destroy callbacks,
+               # cascades dependent: :destroy associations, then DELETEs
+               # returns the (frozen) record or raises on failure
+
+user.delete    # raw DELETE WHERE id = ?, no callbacks, no cascade
+               # returns the count of deleted rows
+
+# Class-level
+User.destroy(5)      # loads and destroys record with id=5
+User.delete(5)       # raw delete, no instantiation</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+
+  <h3>default_scope Gotchas</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby"># default_scope applies to ALL queries including joins, associations
+class Post < ApplicationRecord
+  default_scope { where(published: true) }
+end
+
+Post.all         # WHERE published = true — expected
+Post.unscoped    # strips ALL scopes — but use with care!
+Post.with_scope  # use named scopes instead
+
+# Ordering surprise:
+class Post < ApplicationRecord
+  default_scope { order(:created_at) }
+end
+Post.order(:title)   # ORDER BY created_at, title — NOT just title!
+Post.reorder(:title) # ORDER BY title — replaces default order
+
+# default_scope on associations:
+user.posts       # also applies default_scope — can be surprising
+user.posts.unscoped # strips user_id scope too! Use with care
+
+# Generally: avoid default_scope. Use named scopes instead.
+scope :published, -> { where(published: true) }</code></pre><button class="copy-btn">copy</button></div>
+    <div class="callout danger"><strong>Avoid default_scope.</strong> It applies everywhere including associations, and <code>unscoped</code> strips ALL scopes including the association constraint.</div>
+  </div>
+
+  <h3>Strict Loading</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby"># Raises ActiveRecord::StrictLoadingViolationError on lazy loads
+Post.strict_loading.find(1).user.name  # raises!
+Post.includes(:user).strict_loading.find(1).user.name  # fine
+
+# Per-model (Rails 6.1+)
+class Post < ApplicationRecord
+  self.strict_loading_by_default = true
+end
+
+# Per-association
+has_many :comments, strict_loading: true
+
+# Global (great for test env)
+# config/environments/test.rb
+config.active_record.strict_loading_by_default = true</code></pre><button class="copy-btn">copy</button></div>
+    <div class="callout good">Enable <code>strict_loading_by_default</code> in test env to catch N+1s at the source.</div>
+  </div>
+
+  <h3>Selecting Only What You Need</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby"># Large text/jsonb columns are expensive to deserialize
+# If you don't need body, exclude it:
+Post.select(:id, :title, :created_at).where(published: true)
+
+# Accessing an unselected attr raises MissingAttributeError
+post.body   # raises if body wasn't in SELECT
+
+# Computed columns via select
+User.select("*, (SELECT COUNT(*) FROM posts WHERE posts.user_id = users.id) as posts_count")
+user.posts_count  # available as attribute
+
+# Use pluck for pure data extraction — fastest option
+Post.where(published: true).pluck(:id, :title)</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+
+  <h3>Touch &amp; Updated At Cascades</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby">class Comment < ApplicationRecord
+  belongs_to :post, touch: true   # touches post.updated_at on save/destroy
+end
+
+# This cascades: saving a comment fires an UPDATE on posts table
+# If Post also touches User, that's 3 UPDATEs for 1 comment save
+
+# Can trigger cache invalidation cascades in high-traffic scenarios
+# touch: false to opt out for a specific operation:
+comment.save(touch: false)   # doesn't touch parent
+
+# Bulk touch
+Post.where(id: ids).touch_all  # Rails 6+ — single UPDATE</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+
+  <h3>includes vs joins for Filtering</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby"># includes: use when you WANT to load the association
+Post.includes(:user).where(users: { active: true })
+# Generates LEFT OUTER JOIN (or 2 queries) — loads user objects
+
+# joins: use when you ONLY want to filter, NOT load the association
+Post.joins(:user).where(users: { active: true })
+# INNER JOIN — does NOT load user, accessing post.user = N+1!
+
+# Rule:
+# - Filter only → joins
+# - Filter + load → includes (or eager_load for guaranteed JOIN)</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+
+  <h3>Query Debugging</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby">Post.where(active: true).to_sql       # see the SQL
+Post.where(active: true).explain      # runs EXPLAIN
+Post.where(active: true).explain(:analyze)  # EXPLAIN ANALYZE (PG)
+
+# Log all queries in a block:
+ActiveRecord::Base.logger = Logger.new(STDOUT)
+
+# Count queries in tests:
+query_count = 0
+counter = ->(*, **) { query_count += 1 }
+ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+  # your code
+end
+puts query_count</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+
+  <h3>Dirty Tracking Gotchas</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby">user = User.find(1)
+user.name = "New Name"
+
+user.changed?           # true
+user.name_changed?      # true
+user.name_was           # original value
+user.name_change        # ["Old Name", "New Name"]
+user.changes            # {"name" => ["Old", "New"]}
+
+user.save
+
+# After save — use saved_changes, NOT changes (now empty)
+user.changes            # {} — cleared after save
+user.saved_changes      # {"name" => ["Old", "New"]}
+user.saved_change_to?(:name)          # true
+user.saved_change_to_name?            # true
+user.name_before_last_save            # "Old Name"
+
+# In after_save callback: use saved_changes
+# In before_save callback: use changes</code></pre><button class="copy-btn">copy</button></div>
+    <div class="callout warn">After <code>save</code>, <code>changes</code> is empty. Use <code>saved_changes</code> in <code>after_save</code> callbacks.</div>
+  </div>
+</div>
+
+<!-- ===================== EAGER LOADING ===================== -->
+<div id="eager" class="tab-content">
+  <h2>Eager Loading</h2>
+  <p class="section-intro">Four strategies, each with different SQL behavior. Picking the wrong one is the #1 source of query inefficiency.</p>
+
+  <h3>Strategy Comparison</h3>
+  <div class="card">
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>SQL strategy</th>
+        <th>Loads association?</th>
+        <th>Filterable in WHERE?</th>
+        <th>Use when</th>
+      </tr>
+      <tr>
+        <td><code>preload</code></td>
+        <td>2 separate queries</td>
+        <td><span class="pill green">yes</span></td>
+        <td><span class="pill red">no</span></td>
+        <td>loading large associations, avoids row duplication</td>
+      </tr>
+      <tr>
+        <td><code>includes</code></td>
+        <td>preload OR LEFT OUTER JOIN<br>(auto-selects based on usage)</td>
+        <td><span class="pill green">yes</span></td>
+        <td><span class="pill green">switches to JOIN if filtered</span></td>
+        <td>general-purpose eager load</td>
+      </tr>
+      <tr>
+        <td><code>eager_load</code></td>
+        <td>always LEFT OUTER JOIN</td>
+        <td><span class="pill green">yes</span></td>
+        <td><span class="pill green">yes (same query)</span></td>
+        <td>filtering + loading; guarantee single query</td>
+      </tr>
+      <tr>
+        <td><code>joins</code></td>
+        <td>INNER JOIN</td>
+        <td><span class="pill red">no</span></td>
+        <td><span class="pill green">yes</span></td>
+        <td>filtering only — do not load association</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h4>preload — always 2 queries</h4>
+      <div class="code-block"><pre><code class="language-ruby">Post.preload(:user)
+# SELECT * FROM posts
+# SELECT * FROM users WHERE id IN (1, 2, 3, ...)
+
+# Cannot use in WHERE:
+Post.preload(:user).where(users: { active: true })
+# => ActiveRecord::StatementInvalid — can't filter on preloaded table</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>includes — smart (sometimes too smart)</h4>
+      <div class="code-block"><pre><code class="language-ruby">Post.includes(:user)
+# Uses preload (2 queries) by default
+
+Post.includes(:user).where(users: { active: true })
+# Detects reference to users table → switches to LEFT OUTER JOIN
+# (same as eager_load)
+
+Post.includes(:user).references(:user).where("users.active = true")
+# .references forces JOIN mode when using string WHERE clause
+
+# Nested
+Post.includes(comments: :author)
+Post.includes(:user, comments: [:author, :likes])</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>eager_load — always LEFT OUTER JOIN</h4>
+      <div class="code-block"><pre><code class="language-ruby">Post.eager_load(:user)
+# SELECT posts.*, users.* FROM posts
+# LEFT OUTER JOIN users ON users.id = posts.user_id
+
+# Good for filtering AND loading in one query:
+Post.eager_load(:user).where(users: { active: true })
+
+# Watch out: has_many + eager_load → row duplication
+# A post with 3 comments = 3 rows; AR dedupes via ID but
+# LIMIT/OFFSET math breaks:
+Post.eager_load(:comments).limit(5)  # may return < 5 posts!</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout warn"><code>eager_load</code> with <code>has_many</code> and <code>LIMIT</code> can return fewer records than expected due to JOIN row duplication.</div>
+    </div>
+
+    <div class="card">
+      <h4>joins — no association loading</h4>
+      <div class="code-block"><pre><code class="language-ruby">Post.joins(:user).where(users: { active: true })
+# INNER JOIN — posts without a user are excluded
+# user NOT loaded — accessing post.user triggers a new query!
+
+# LEFT OUTER JOIN manually:
+Post.joins("LEFT OUTER JOIN users ON users.id = posts.user_id")
+
+# Joining through:
+Post.joins(comments: :author)
+# JOIN comments ... JOIN users (authors) ...
+
+# join + select for custom columns
+Post.joins(:user).select("posts.*, users.name as author_name")
+post.author_name  # available as attribute</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+  </div>
+
+  <h3>When includes Picks JOIN vs Preload</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby"># includes uses JOIN if:
+# 1. You filter on the association table in WHERE/HAVING
+Post.includes(:user).where(users: { active: true })
+
+# 2. You call .references(:assoc)
+Post.includes(:user).references(:user).where("users.active = true")
+
+# includes uses preload (2 queries) if:
+# No reference to the association in WHERE/HAVING
+Post.includes(:user)
+
+# Force preload explicitly if you're worried about JOIN row duplication:
+Post.preload(:user)
+
+# Force JOIN explicitly:
+Post.eager_load(:user)</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+
+  <h3>Nested &amp; Complex Eager Loading</h3>
+  <div class="card">
+    <div class="code-block"><pre><code class="language-ruby"># Hash for nested
+Post.includes(comments: :author)
+Post.includes(comments: [:author, :reactions])
+
+# Array for multiple top-level
+Post.includes(:user, :tags, comments: :author)
+
+# With conditions on nested (use joins for filtering):
+Post.includes(:comments).where(comments: { approved: true })
+# Uses LEFT OUTER JOIN — posts WITH NO approved comments still returned
+# (their comments collection will be empty)
+
+# vs INNER JOIN to exclude posts with no approved comments:
+Post.joins(:comments).where(comments: { approved: true }).includes(:comments)
+# joins filters; includes loads — may issue separate preload query</code></pre><button class="copy-btn">copy</button></div>
+  </div>
+</div>
+
+<!-- ===================== ASSOCIATIONS ===================== -->
+<div id="associations" class="tab-content">
+  <h2>Associations</h2>
+  <p class="section-intro">Key options and non-obvious behavior. Assumes you know the basics.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>has_many Options</h4>
+      <div class="code-block"><pre><code class="language-ruby">has_many :posts                          # foreign_key: :user_id inferred
+has_many :published_posts,
+         -> { where(published: true) },  # scope lambda
+         class_name: "Post"
+has_many :posts, foreign_key: :author_id
+has_many :posts, primary_key: :uuid      # non-id primary key
+has_many :posts, inverse_of: :user       # bidirectional identity
+has_many :posts, strict_loading: true
+has_many :posts, dependent: :destroy     # cascade destroy (slow)
+has_many :posts, dependent: :delete_all  # cascade SQL delete (fast, no callbacks)
+has_many :posts, dependent: :nullify     # SET foreign_key = NULL
+has_many :posts, dependent: :restrict_with_error # prevent deletion if assoc exists
+has_many :posts, dependent: :restrict_with_exception</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>has_many :through</h4>
+      <div class="code-block"><pre><code class="language-ruby">class User < ApplicationRecord
+  has_many :memberships
+  has_many :groups, through: :memberships
+  has_many :posts, through: :groups   # multi-hop
+end
+
+class Membership < ApplicationRecord
+  belongs_to :user
+  belongs_to :group
+end
+
+# source: needed when name doesn't match
+has_many :admins, through: :memberships,
+         source: :user,
+         source_type: "User"  # for polymorphic through</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>belongs_to Options</h4>
+      <div class="code-block"><pre><code class="language-ruby">belongs_to :user                        # required by default (Rails 5+)
+belongs_to :user, optional: true        # allow nil
+belongs_to :author, class_name: "User"
+belongs_to :user, counter_cache: true   # maintains user.posts_count
+belongs_to :user, counter_cache: :articles_count  # custom column name
+belongs_to :post, touch: true           # updates post.updated_at
+belongs_to :category, touch: :category_updated_at # custom timestamp col
+belongs_to :user, inverse_of: :posts    # in-memory identity</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Polymorphic</h4>
+      <div class="code-block"><pre><code class="language-ruby">class Comment < ApplicationRecord
+  belongs_to :commentable, polymorphic: true
+end
+
+class Post < ApplicationRecord
+  has_many :comments, as: :commentable
+end
+
+class Video < ApplicationRecord
+  has_many :comments, as: :commentable
+end
+
+# columns: commentable_id (integer), commentable_type (string)
+comment.commentable        # returns Post or Video instance
+comment.commentable_type   # "Post"
+
+# Gotcha: can't JOIN across polymorphic — no way to JOIN both tables
+# Use includes for loading, avoid JOINs on polymorphic associations</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout warn">Polymorphic associations can't be JOINed efficiently — you can't write a single JOIN that covers multiple <code>commentable_type</code> values.</div>
+    </div>
+
+    <div class="card">
+      <h4>has_one</h4>
+      <div class="code-block"><pre><code class="language-ruby">has_one :profile                         # uses user_id on profiles table
+has_one :profile, dependent: :destroy
+has_one :latest_post,
+        -> { order(created_at: :desc) }, # scope to pick which one
+        class_name: "Post"
+
+# Build vs create:
+user.build_profile(bio: "...")   # builds in memory, not saved
+user.create_profile(bio: "...")  # saves immediately
+user.profile ||= Profile.new     # equivalent to build if nil</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Association Methods &amp; Gotchas</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Appending with <<
+user.posts << Post.new(title: "x")  # saves immediately if user is persisted
+
+# build vs create on collection
+user.posts.build(title: "x")    # in-memory, not saved
+user.posts.create(title: "x")   # saves immediately
+
+# Caching — AR caches association results
+user.posts.count  # SELECT COUNT(*)
+user.posts.count  # SELECT COUNT(*) again (not cached)
+user.posts.size   # uses cached length if loaded
+
+# Force reload
+user.posts(true)         # deprecated — use reload
+user.association(:posts).reload
+user.reload.posts        # reloads full record
+
+# inverse_of prevents creating extra objects in memory
+# Without it: post.user.object_id != user.object_id (two User instances)</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SCOPES ===================== -->
+<div id="scopes" class="tab-content">
+  <h2>Scopes</h2>
+  <p class="section-intro">Named scopes, scope composition, and the default_scope trap.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>Named Scopes</h4>
+      <div class="code-block"><pre><code class="language-ruby">class Post < ApplicationRecord
+  scope :published, -> { where(published: true) }
+  scope :recent,    -> { order(created_at: :desc) }
+  scope :by_author, ->(user) { where(author: user) }
+  scope :created_after, ->(date) { where("created_at > ?", date) }
+
+  # Scope with includes
+  scope :with_author, -> { includes(:author) }
+
+  # Never use default_scope — use named scopes instead
+end
+
+Post.published.recent.by_author(current_user)
+Post.published.created_after(1.week.ago)</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Scope Chaining &amp; Merging</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Scopes chain with AND by default
+Post.published.recent   # WHERE published = true ORDER BY created_at DESC
+
+# Merging scopes from another model (great with joins)
+class Post < ApplicationRecord
+  scope :by_active_users, -> { joins(:user).merge(User.active) }
+end
+
+class User < ApplicationRecord
+  scope :active, -> { where(active: true) }
+end
+
+Post.by_active_users
+# SELECT posts.* FROM posts INNER JOIN users ON ... WHERE users.active = true
+
+# OR scopes (Rails 5+)
+Post.published.or(Post.featured)
+# WHERE published = true OR featured = true</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>default_scope — Hazards</h4>
+      <div class="code-block"><pre><code class="language-ruby">class Post < ApplicationRecord
+  default_scope { where(published: true) }
+end
+
+# Hazard 1: applies to NEW records too
+Post.new.published  # => true (set by default_scope)
+
+# Hazard 2: unscoped strips association scope too
+user.posts.unscoped  # => ALL posts, not just user's posts!
+
+# Hazard 3: ORDER default_scope stacks
+class Post < ApplicationRecord
+  default_scope { order(:created_at) }
+end
+Post.order(:title)   # ORDER BY created_at, title (stacked!)
+Post.reorder(:title) # ORDER BY title (replaces)
+
+# Hazard 4: affects associations
+user.posts           # WHERE user_id = ? AND published = true
+                     # hidden default_scope filter!</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout danger"><strong>Avoid default_scope.</strong> It causes subtle bugs and is hard to opt out of cleanly.</div>
+    </div>
+
+    <div class="card">
+      <h4>unscoped &amp; unscope</h4>
+      <div class="code-block"><pre><code class="language-ruby"># unscoped — removes ALL scopes (including association scope!)
+Post.unscoped.where(id: 1)
+
+# unscope — removes specific clauses
+Post.published.recent.unscope(:order)    # keeps WHERE, removes ORDER
+Post.unscope(:where).order(:title)       # removes WHERE, keeps ORDER
+Post.unscope(where: :published)          # removes specific WHERE condition
+
+# Within association context, prefer unscope over unscoped
+user.posts.unscope(:order)   # safe — keeps the user_id constraint
+user.posts.unscoped          # unsafe — loses user_id constraint!</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== CALLBACKS ===================== -->
+<div id="callbacks" class="tab-content">
+  <h2>Callbacks</h2>
+  <p class="section-intro">Lifecycle hooks, ordering, and when they don't fire.</p>
+
+  <h3>Lifecycle Order</h3>
+  <div class="card">
+    <table>
+      <tr><th>Create</th><th>Update</th><th>Destroy</th></tr>
+      <tr>
+        <td>
+          before_validation<br>
+          after_validation<br>
+          before_save<br>
+          around_save<br>
+          before_create<br>
+          around_create<br>
+          after_create<br>
+          after_save<br>
+          after_commit / after_rollback
+        </td>
+        <td>
+          before_validation<br>
+          after_validation<br>
+          before_save<br>
+          around_save<br>
+          before_update<br>
+          around_update<br>
+          after_update<br>
+          after_save<br>
+          after_commit / after_rollback
+        </td>
+        <td>
+          before_destroy<br>
+          around_destroy<br>
+          after_destroy<br>
+          after_commit / after_rollback
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h4>after_commit vs after_save</h4>
+      <div class="code-block"><pre><code class="language-ruby"># after_save fires inside the transaction
+# after_commit fires AFTER the transaction commits
+
+# Use after_commit for side effects that shouldn't happen if rollback:
+after_commit :send_welcome_email, on: :create
+after_commit :notify_update, on: :update
+after_commit :log_deletion, on: :destroy
+
+# after_save is INSIDE the transaction:
+# - If something later rolls back, after_save already fired
+# - Enqueuing jobs in after_save = job may run before data committed
+#   → Use after_commit for job enqueuing!
+
+# Shorthand:
+after_create_commit  :send_welcome_email
+after_update_commit  :notify_update
+after_destroy_commit :log_deletion
+after_save_commit    :sync_to_cache   # any save (create or update)</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout danger">Enqueue background jobs in <code>after_commit</code>, not <code>after_save</code>. A job that runs before the transaction commits will read stale/missing data.</div>
+    </div>
+
+    <div class="card">
+      <h4>Conditional Callbacks</h4>
+      <div class="code-block"><pre><code class="language-ruby">before_save :normalize_name, if: :name_changed?
+before_save :set_slug,       if: -> { title_changed? || slug.blank? }
+after_create :send_email,    unless: :system_user?
+before_destroy :check_deps,  if: :has_dependents?
+
+# Multiple conditions (all must be true)
+before_save :do_thing, if: [:published?, :title_changed?]</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Skipping Callbacks</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Skip a specific callback for a model (use sparingly in tests)
+User.skip_callback(:create, :after, :send_welcome_email) do
+  User.create(name: "test")
+end
+
+# update_column / update_columns — bypass all callbacks + validations
+user.update_column(:name, "New")   # single column, no callbacks
+user.update_columns(name: "New", role: "admin")  # multiple
+
+# update_attribute — bypasses validations but RUNS callbacks
+user.update_attribute(:name, "New")
+
+# save(validate: false) — skips validation, runs callbacks
+
+# Method bypass matrix:
+# update_attribute  → skips validations, runs callbacks, touches updated_at
+# update_column     → skips both, skips updated_at
+# update_columns    → skips both, skips updated_at
+# update_all        → skips both, skips updated_at (class-level)</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Halting Callbacks</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Throwing :abort halts the callback chain and returns false
+before_create do
+  throw(:abort) if name.blank?
+end
+
+# Returns false from save / create:
+user.save  # => false if callback throws :abort
+
+# false return value from callback no longer halts (Rails 5+)
+# Must explicitly throw :abort
+
+# Checking why save failed:
+user.save  # => false
+user.errors.full_messages  # may be empty if halted without errors
+# Add errors before throwing abort for better UX:
+before_create do
+  errors.add(:base, "Name required")
+  throw(:abort) if name.blank?
+end</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== VALIDATIONS ===================== -->
+<div id="validations" class="tab-content">
+  <h2>Validations</h2>
+  <p class="section-intro">The non-obvious parts: contexts, options, and bypasses.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>Common Validators</h4>
+      <div class="code-block"><pre><code class="language-ruby">validates :name,  presence: true
+validates :email, presence: true,
+                  uniqueness: { case_sensitive: false, scope: :account_id },
+                  format: { with: URI::MailTo::EMAIL_REGEXP }
+validates :age,   numericality: { greater_than: 0, less_than: 150 }
+validates :role,  inclusion: { in: %w[admin mod user] }
+validates :bio,   length: { maximum: 500 }
+validates :slug,  uniqueness: true, if: :published?
+
+# Multiple attrs same validation:
+validates :first_name, :last_name, presence: true</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Validation Contexts</h4>
+      <div class="code-block"><pre><code class="language-ruby">validates :password, presence: true, on: :create
+validates :old_password, presence: true, on: :update
+validates :terms, acceptance: true, on: :registration  # custom context
+
+# Trigger with context:
+user.save(context: :registration)
+user.valid?(:registration)
+
+# Validate without saving:
+user.valid?           # runs all default validations
+user.invalid?         # inverse
+user.errors           # ActiveModel::Errors
+user.errors[:email]   # array of messages for :email
+user.errors.full_messages</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Custom Validators</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Inline with validate (method)
+validate :slug_format
+
+def slug_format
+  unless slug =~ /\A[a-z0-9-]+\z/
+    errors.add(:slug, "only lowercase letters, numbers, and hyphens")
+  end
+end
+
+# EachValidator class (reusable)
+class EmailDomainValidator < ActiveModel::EachValidator
+  def validate_each(record, attribute, value)
+    unless value.end_with?("@myco.com")
+      record.errors.add(attribute, options[:message] || "must be a company email")
+    end
+  end
+end
+
+validates :email, email_domain: true
+validates :email, email_domain: { message: "must end in @myco.com" }</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Bypassing Validations</h4>
+      <div class="code-block"><pre><code class="language-ruby">user.save(validate: false)      # skips ALL validations, runs callbacks
+user.update_attribute(:x, val)  # skips validations, runs callbacks
+user.update_column(:x, val)     # skips validations AND callbacks
+User.update_all(x: val)         # skips both, class level
+
+# uniqueness validation has a race condition!
+# Always back it up with a DB-level unique index:
+# add_index :users, :email, unique: true
+# The validation is UX sugar; the index is the real guard.</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout warn"><code>validates :email, uniqueness: true</code> has a TOCTOU race condition. Always add a unique DB index as the actual constraint.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TRANSACTIONS ===================== -->
+<div id="transactions" class="tab-content">
+  <h2>Transactions</h2>
+  <p class="section-intro">Transaction semantics, savepoints, and the after_commit timing trap.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>Basics</h4>
+      <div class="code-block"><pre><code class="language-ruby">ActiveRecord::Base.transaction do
+  user.save!
+  account.update!(balance: account.balance - amount)
+end
+
+# Any exception rolls back the transaction
+# Only ActiveRecord::Rollback is swallowed (not re-raised)
+# All other exceptions propagate after rollback
+
+# Force rollback without exception:
+ActiveRecord::Base.transaction do
+  do_some_work
+  raise ActiveRecord::Rollback  # rolls back, no exception propagates
+end
+
+# The model the transaction is called on doesn't matter —
+# all AR connections in the same thread share the transaction:
+User.transaction do
+  user.save!
+  order.save!  # also in transaction, even though it's an Order
+end</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Nested Transactions &amp; Savepoints</h4>
+      <div class="code-block"><pre><code class="language-ruby"># By default, nested transactions JOIN the outer transaction
+# (no savepoint)
+User.transaction do
+  User.transaction do   # joins outer — NOT a savepoint
+    user.save!
+  end                   # inner commit is a no-op
+end                     # outer commit fires here
+
+# requires_new: true creates a savepoint
+User.transaction do
+  User.transaction(requires_new: true) do
+    user.save!
+    raise ActiveRecord::Rollback  # only rolls back to savepoint
+  end                  # outer continues
+  other.save!
+end
+
+# Gotcha: ActiveRecord::Rollback raised in inner transaction
+# without requires_new: true will propagate as a no-op,
+# but outer transaction will STILL commit!</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout warn">Nested transactions without <code>requires_new: true</code> join the outer transaction. An <code>ActiveRecord::Rollback</code> raised in the inner block is silently ignored.</div>
+    </div>
+
+    <div class="card">
+      <h4>Locking</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Pessimistic locking — SELECT ... FOR UPDATE
+user = User.lock.find(1)
+user = User.find(1)
+user.lock!             # issues SELECT ... FOR UPDATE
+
+User.transaction do
+  user = User.lock.find(params[:id])
+  user.update!(balance: user.balance - 10)
+end
+
+# Optimistic locking — add lock_version integer column
+# add_column :users, :lock_version, :integer, default: 0
+User.find(1).save!  # auto-increments lock_version
+# Concurrent saves raise ActiveRecord::StaleObjectError
+
+# Custom lock clauses:
+User.lock("LOCK IN SHARE MODE").find(1)  # MySQL
+User.lock("FOR UPDATE SKIP LOCKED").where(...) # PG skip locked rows</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>after_commit Timing</h4>
+      <div class="code-block"><pre><code class="language-ruby"># after_save: fires inside the transaction
+# after_commit: fires AFTER the transaction commits to DB
+
+# Problem pattern:
+after_save :enqueue_job  # BAD — job may run before transaction commits
+
+# Correct pattern:
+after_commit :enqueue_job, on: :create  # GOOD
+
+# In tests: use_transactional_tests wraps each test in a transaction
+# that never commits → after_commit never fires!
+# Solutions:
+# 1. DatabaseCleaner with :truncation strategy for those tests
+# 2. Rails built-in: test.rb transactional callbacks workaround
+#    config.active_record.maintain_test_schema = true
+
+# after_rollback — fires if transaction rolled back
+after_rollback :cleanup_uploaded_files</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout danger"><code>after_commit</code> never fires in transactional tests. If you're testing jobs enqueued in <code>after_commit</code>, your test suite may silently skip them.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MIGRATIONS ===================== -->
+<div id="migrations" class="tab-content">
+  <h2>Migrations</h2>
+  <p class="section-intro">Production-safe patterns, index options, and zero-downtime gotchas.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>add_column with Default — PostgreSQL Gotcha</h4>
+      <div class="code-block"><pre><code class="language-ruby"># OLD BAD (rewrites entire table — locks it):
+add_column :users, :active, :boolean, default: true, null: false
+
+# GOOD on PG 11+: constant defaults are instant (stored in catalog)
+add_column :users, :active, :boolean, default: true, null: false
+# PG 11+ handles constant defaults without table rewrite
+
+# STILL SLOW on PG < 11 or for non-constant defaults:
+# Step 1: add nullable column
+add_column :users, :score, :integer
+
+# Step 2: backfill in batches
+User.find_in_batches { |g| User.where(id: g).update_all(score: 0) }
+
+# Step 3: add NOT NULL + default after backfill
+change_column_null :users, :score, false
+change_column_default :users, :score, 0</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Index Options</h4>
+      <div class="code-block"><pre><code class="language-ruby">add_index :users, :email, unique: true
+add_index :users, [:account_id, :email], unique: true  # compound unique
+add_index :users, :email, name: "idx_users_email_lower",
+          using: :btree  # default; also :hash, :gin, :gist (PG)
+
+# Partial index (PG) — much smaller, faster for filtered queries
+add_index :users, :email, where: "deleted_at IS NULL"
+
+# Concurrent index creation (PG) — doesn't lock table
+add_index :users, :email, algorithm: :concurrently
+
+# expression index
+add_index :users, "lower(email)", name: "idx_users_lower_email"
+
+# Remove
+remove_index :users, :email
+remove_index :users, column: :email
+remove_index :users, name: "idx_users_email_lower"</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout warn"><code>algorithm: :concurrently</code> cannot run inside a transaction. Wrap the migration in <code>disable_ddl_transaction!</code>.</div>
+    </div>
+
+    <div class="card">
+      <h4>Concurrent Index &amp; Disable DDL Transaction</h4>
+      <div class="code-block"><pre><code class="language-ruby">class AddIndexToUsersEmail < ActiveRecord::Migration[7.1]
+  disable_ddl_transaction!  # required for :concurrently
+
+  def change
+    add_index :users, :email,
+              algorithm: :concurrently,
+              if_not_exists: true  # idempotent
+  end
+end</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>change vs up/down</h4>
+      <div class="code-block"><pre><code class="language-ruby"># change: auto-reversible (add_column, add_index, create_table, etc.)
+def change
+  add_column :users, :bio, :text
+end
+
+# up/down: when change isn't reversible
+def up
+  change_column :users, :score, :decimal, precision: 10, scale: 2
+end
+
+def down
+  change_column :users, :score, :integer
+end
+
+# Reversible block inside change:
+def change
+  reversible do |dir|
+    dir.up   { execute "CREATE EXTENSION IF NOT EXISTS citext" }
+    dir.down { execute "DROP EXTENSION IF EXISTS citext" }
+  end
+  add_column :users, :email, :citext
+end</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Bulk Changes (MySQL)</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Without bulk: each change = separate ALTER TABLE (slow)
+def change
+  change_table :users, bulk: true do |t|  # single ALTER TABLE
+    t.add    :bio,     :text
+    t.add    :score,   :integer, default: 0
+    t.remove :legacy_col
+    t.rename :old_name, :new_name
+  end
+end
+
+# Note: bulk: true is MySQL-specific optimization
+# PG handles multiple columns in one ALTER TABLE natively</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+
+    <div class="card">
+      <h4>Renaming / Removing Columns Safely</h4>
+      <div class="code-block"><pre><code class="language-ruby"># Removing a column: AR caches column list at boot
+# If you remove a column while app is running, existing processes
+# will fail trying to SELECT the removed column.
+
+# Safe sequence (zero-downtime):
+# 1. Tell AR to ignore the column (before migration):
+class User < ApplicationRecord
+  self.ignored_columns = [:old_col]
+end
+
+# 2. Deploy app code with ignored_columns
+# 3. Run migration to drop the column
+# 4. Remove ignored_columns from model
+
+# Renaming: same issue — use ignored_columns + new column + backfill
+# Avoid rename_column in zero-downtime deployments</code></pre><button class="copy-btn">copy</button></div>
+      <div class="callout warn">Remove or rename columns in two deploys: first <code>ignored_columns</code>, then the actual migration. Never drop a column in a single deploy.</div>
+    </div>
+
+    <div class="card">
+      <h4>Useful Migration Helpers</h4>
+      <div class="code-block"><pre><code class="language-ruby">add_reference :posts, :user, foreign_key: true        # adds user_id + FK
+add_reference :posts, :user, foreign_key: true,
+              index: { algorithm: :concurrently }     # concurrent index
+
+add_foreign_key :posts, :users                        # adds FK constraint
+add_foreign_key :posts, :users, on_delete: :cascade   # DB-level cascade
+
+# Check constraints (Rails 6.1+, PG)
+add_check_constraint :users, "age > 0", name: "age_positive"
+
+# Timestamps
+add_timestamps :posts                                  # adds created_at, updated_at
+add_column :posts, :published_at, :datetime, null: true
+
+# Default value
+change_column_default :users, :role, from: nil, to: "user"</code></pre><button class="copy-btn">copy</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const code = btn.closest('.code-block').querySelector('code').innerText;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'copy';
+        btn.classList.remove('copied');
+      }, 1500);
+    });
+  });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('pre code').forEach(block => {
+    hljs.highlightElement(block);
+  });
+});
+</script>
+</body>
+</html>
