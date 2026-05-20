@@ -1,0 +1,67 @@
+# .github/workflows/inat-sync.yml
+#
+# Pulls new iNaturalist observations daily, renders one Jekyll post per run
+# (grouped by observed_on date on first run), and pushes to main only if
+# `jekyll build` succeeds with the new files.
+#
+# Permissions: contents: write so the default GITHUB_TOKEN can commit back.
+# No secrets required — anonymous iNat API.
+
+name: iNaturalist sync
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # daily at 07:00 UTC (midnight Pacific)
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Group by observed_on date (first-run mode)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: inat-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Run sync
+        id: sync
+        env:
+          INAT_USER: ${{ vars.INAT_USER }}
+          BACKFILL_FLAG: ${{ inputs.backfill && '--backfill' || '' }}
+        run: |
+          set -euo pipefail
+          before_count=$(git status --porcelain | wc -l | tr -d ' ')
+          ruby scripts/inat_sync.rb --user "$INAT_USER" $BACKFILL_FLAG
+          after_count=$(git status --porcelain | wc -l | tr -d ' ')
+          if [ "$before_count" = "$after_count" ]; then
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Jekyll site (gate)
+        if: steps.sync.outputs.changes == 'true'
+        run: bundle exec jekyll build --strict_front_matter
+
+      - name: Commit and push
+        if: steps.sync.outputs.changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add _posts/ _data/inat_published.yml
+          git commit -m "Sync iNaturalist observations $(date -u +%Y-%m-%d)"
+          git push

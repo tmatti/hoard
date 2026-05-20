@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iNaturalist &rarr; Jekyll Auto-Posting</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --bg-elev: #161a22;
+      --bg-code: #0b0d12;
+      --border: #232936;
+      --text: #e6e8ee;
+      --text-dim: #9aa3b2;
+      --accent: #74c69d;
+      --accent-strong: #95d5b2;
+      --link: #8ab4f8;
+      --warn: #e9c46a;
+      --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      line-height: 1.55;
+      font-size: 15px;
+    }
+    a { color: var(--link); }
+    a:hover { text-decoration: underline; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-elev);
+      border-right: 1px solid var(--border);
+      padding: 28px 0 24px;
+      position: sticky; top: 0; height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar h1 {
+      font-size: 14px; font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin: 0 24px 8px;
+    }
+    .sidebar .subtitle {
+      margin: 0 24px 22px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .sidebar nav { display: flex; flex-direction: column; }
+    .sidebar nav button {
+      background: none; border: 0;
+      text-align: left;
+      padding: 9px 24px;
+      color: var(--text-dim);
+      font: inherit;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+    }
+    .sidebar nav button:hover { color: var(--text); }
+    .sidebar nav button.active {
+      color: var(--accent-strong);
+      background: rgba(116, 198, 157, 0.08);
+      border-left-color: var(--accent);
+    }
+    .sidebar nav .group-label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #5d6578;
+      margin: 18px 24px 4px;
+    }
+
+    /* Main */
+    .main {
+      padding: 36px 48px 80px;
+      max-width: 980px;
+    }
+    .main section { display: none; }
+    .main section.active { display: block; }
+    .main h2 {
+      font-size: 26px; margin: 0 0 4px;
+      letter-spacing: -0.01em;
+    }
+    .main .lede {
+      color: var(--text-dim);
+      margin: 0 0 28px;
+      font-size: 15px;
+    }
+    .main h3 {
+      font-size: 17px; margin: 28px 0 8px;
+      color: var(--accent-strong);
+    }
+    .main p { margin: 0 0 12px; }
+    .main ul, .main ol { padding-left: 22px; margin: 0 0 14px; }
+    .main li { margin: 4px 0; }
+    .main code, .main pre { font-family: var(--mono); font-size: 13px; }
+    .main p code, .main li code, .main td code {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12.5px;
+    }
+    .main pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 0 0 16px;
+    }
+    .main table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 22px;
+      font-size: 14px;
+    }
+    .main th, .main td {
+      text-align: left;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .main th {
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .main blockquote {
+      margin: 14px 0;
+      padding: 10px 16px;
+      border-left: 3px solid var(--warn);
+      background: rgba(233, 196, 106, 0.08);
+      color: var(--text);
+    }
+    .kbd {
+      display: inline-block; padding: 2px 6px;
+      background: var(--bg-code); border: 1px solid var(--border);
+      border-radius: 4px; font-family: var(--mono); font-size: 12px;
+    }
+    .pill {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 999px; font-size: 11px;
+      background: rgba(116, 198, 157, 0.15);
+      color: var(--accent-strong);
+      border: 1px solid rgba(116, 198, 157, 0.3);
+      margin-right: 6px;
+    }
+    .arch {
+      display: grid;
+      gap: 10px;
+      margin: 12px 0 18px;
+    }
+    .arch .step {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .arch .step .num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(116, 198, 157, 0.15);
+      color: var(--accent-strong);
+      font-size: 13px; font-weight: 600;
+    }
+    .arch .step .body strong { display: block; margin-bottom: 2px; }
+    .arch .step .body span { color: var(--text-dim); font-size: 13.5px; }
+
+    .preview-card {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 22px;
+      margin: 12px 0 18px;
+    }
+    .preview-card h4 {
+      margin: 0 0 4px; font-size: 18px;
+    }
+    .preview-card .meta {
+      color: var(--text-dim); font-size: 13px; margin: 0 0 10px;
+    }
+    .preview-card .photos {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .preview-card .photos div {
+      aspect-ratio: 1 / 1;
+      background: linear-gradient(135deg, #1f2937, #374151);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dim); font-size: 11px;
+    }
+
+    .grid-tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+    .grid-tiles div {
+      aspect-ratio: 1 / 1;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #2d3748, #4a5568);
+      position: relative; overflow: hidden;
+    }
+    .grid-tiles div::after {
+      content: attr(data-label);
+      position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 5px 8px;
+      color: #fff; font-size: 11px;
+      background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
+    }
+
+    .small { color: var(--text-dim); font-size: 12.5px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>iNat &rarr; Jekyll</h1>
+      <p class="subtitle">Investigation report &middot; 2026-05-19</p>
+      <nav id="nav">
+        <div class="group-label">Project</div>
+        <button data-tab="overview" class="active">Overview</button>
+        <button data-tab="design">Design decisions</button>
+        <button data-tab="architecture">Architecture</button>
+
+        <div class="group-label">Implementation</div>
+        <button data-tab="api">iNat API</button>
+        <button data-tab="script">Sync script</button>
+        <button data-tab="workflow">GitHub Action</button>
+        <button data-tab="jekyll">Jekyll integration</button>
+
+        <div class="group-label">Operations</div>
+        <button data-tab="setup">Setup guide</button>
+        <button data-tab="preview">Sample output</button>
+        <button data-tab="risks">Risks &amp; gotchas</button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <!-- OVERVIEW -->
+      <section id="overview" class="active">
+        <h2>Auto-post iNaturalist observations to a Jekyll blog</h2>
+        <p class="lede">
+          A scheduled GitHub Action pulls fresh observations from iNaturalist's
+          public API, renders them into Markdown posts, validates with a
+          full <code>jekyll build</code>, and pushes to <code>main</code>.
+          Zero secrets, zero external dependencies, ~250 lines of Ruby.
+        </p>
+
+        <h3>Goal</h3>
+        <p>
+          Mirror your iNaturalist observations into a dedicated section of your
+          Jekyll/GitHub Pages blog. Daily cadence. Hands-off after first-run
+          backfill.
+        </p>
+
+        <h3>Approach in one diagram</h3>
+        <div class="arch">
+          <div class="step"><span class="num">1</span><div class="body"><strong>Cron fires (07:00 UTC daily)</strong><span>Also runnable manually via <code>workflow_dispatch</code>, with a <code>backfill</code> toggle for first-run history ingest.</span></div></div>
+          <div class="step"><span class="num">2</span><div class="body"><strong>Ruby script hits iNat API</strong><span>Anonymous <code>GET /v1/observations?user_login=...</code>, keyset-paginated 200 at a time.</span></div></div>
+          <div class="step"><span class="num">3</span><div class="body"><strong>Manifest diff</strong><span>Compare returned IDs against <code>_data/inat_published.yml</code>. Anything missing is "new".</span></div></div>
+          <div class="step"><span class="num">4</span><div class="body"><strong>Render Markdown</strong><span>ERB template &rarr; one post per run (or one per <code>observed_on</code> date in backfill mode). Frontmatter tagged <code>inaturalist</code>.</span></div></div>
+          <div class="step"><span class="num">5</span><div class="body"><strong>Validate with <code>jekyll build</code></strong><span>If Jekyll can't parse the new files, the workflow fails and nothing is committed.</span></div></div>
+          <div class="step"><span class="num">6</span><div class="body"><strong>Commit + push</strong><span>Default <code>GITHUB_TOKEN</code> with <code>contents: write</code> permission. GitHub Pages rebuilds; the post is live.</span></div></div>
+        </div>
+
+        <h3>What's in this folder</h3>
+        <table>
+          <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>notes.md</code></td><td>Investigation log &mdash; design rationale, API findings, open questions.</td></tr>
+            <tr><td><code>scripts/inat_sync.rb</code></td><td>The sync script. Ruby stdlib only.</td></tr>
+            <tr><td><code>scripts/test_renderer.rb</code></td><td>Smoke test for the ERB renderer.</td></tr>
+            <tr><td><code>scripts/fixture_obs.json</code></td><td>3-obs sample API response, captured live for testing.</td></tr>
+            <tr><td><code>workflows/inat-sync.yml</code></td><td>GitHub Actions workflow.</td></tr>
+            <tr><td><code>jekyll/observations.html</code></td><td>Landing-page template (photo grid).</td></tr>
+            <tr><td><code>README.md</code></td><td>Install/usage docs.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- DESIGN -->
+      <section id="design">
+        <h2>Design decisions</h2>
+        <p class="lede">
+          Resolved one-by-one during a structured planning interview. Each
+          choice locked in a constraint for everything that followed.
+        </p>
+        <table>
+          <thead><tr><th>Decision</th><th>Choice</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Where do posts live?</td><td>Committed Markdown</td><td>Permanent, editable, GitHub Pages-friendly; avoids custom plugin sandbox.</td></tr>
+            <tr><td>How is "new" defined?</td><td>Manifest of obs IDs</td><td>Robust to backdated uploads, hand-edits, partial failures.</td></tr>
+            <tr><td>Run cadence</td><td>Daily, post anything new</td><td>Promptest publishing without burning the cache window.</td></tr>
+            <tr><td>Which observations</td><td>All of them, no filter</td><td>Curation happens at upload time on iNat, not here.</td></tr>
+            <tr><td>Photo hosting</td><td>Hotlink iNat CDN, medium size</td><td>Zero repo bloat; iNat is the archival copy.</td></tr>
+            <tr><td>Location display</td><td><code>place_guess</code> text, no map</td><td>Honors iNat privacy; no API token needed.</td></tr>
+            <tr><td>Post granularity</td><td>One daily digest, multi-photo gallery per obs</td><td>Narrative reading, fewer dead-end mini-posts.</td></tr>
+            <tr><td>Backfill</td><td>Full historical, grouped by <code>observed_on</code></td><td>Existing iNat history becomes blog history on day one.</td></tr>
+            <tr><td>Jekyll integration</td><td><code>_posts/</code> + <code>tags: [inaturalist]</code></td><td>User preference &mdash; integrates with existing tag system.</td></tr>
+            <tr><td>Language</td><td>Ruby, stdlib only</td><td>Matches Jekyll; no Gemfile/lockfile churn.</td></tr>
+            <tr><td>Commit flow</td><td>Direct push, gated by <code>jekyll build</code></td><td>Automated without risking a broken site.</td></tr>
+            <tr><td>Schedule</td><td>07:00 UTC daily</td><td>Off-peak; posts land before US wake-up.</td></tr>
+            <tr><td>Mutability</td><td>Snapshot &mdash; never re-sync</td><td>Hand-edits stay safe; iNat remains the live source.</td></tr>
+            <tr><td>Landing page</td><td>Photo-grid of hero thumbnails</td><td>Observations are visual; portfolio feel.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ARCHITECTURE -->
+      <section id="architecture">
+        <h2>Architecture</h2>
+        <p class="lede">Three moving parts, one repo.</p>
+
+        <h3>Data flow</h3>
+        <pre>iNaturalist API
+     │
+     │  GET /v1/observations?user_login=...
+     │  (anonymous, paginated 200/page via id_above)
+     ▼
+GitHub Action runner (Ubuntu)
+     │
+     │  ruby scripts/inat_sync.rb
+     │      reads  _data/inat_published.yml
+     │      writes _posts/*.md
+     │      writes _data/inat_published.yml
+     │
+     │  bundle exec jekyll build --strict_front_matter
+     │      (fail-stop gate)
+     │
+     │  git commit + push to main
+     ▼
+GitHub Pages build
+     │
+     ▼
+Live site &mdash; /observations/ landing + tagged posts</pre>
+
+        <h3>State</h3>
+        <ul>
+          <li><code>_data/inat_published.yml</code> &mdash; the only piece of stateful data. A sorted list of integer iNat observation IDs.</li>
+          <li><code>_posts/*.md</code> &mdash; immutable artifacts once written.</li>
+          <li>No database, no S3, no API token, no rotating secrets.</li>
+        </ul>
+
+        <h3>Trust boundaries</h3>
+        <ul>
+          <li>iNat API is treated as untrusted input &mdash; script never <code>eval</code>s or shells out with API data.</li>
+          <li>Default <code>GITHUB_TOKEN</code> is scoped to <code>contents: write</code> on this repo only.</li>
+          <li>No third-party Actions used beyond <code>actions/checkout</code> and <code>ruby/setup-ruby</code>, both first-party / well-audited.</li>
+        </ul>
+      </section>
+
+      <!-- API -->
+      <section id="api">
+        <h2>iNaturalist API notes</h2>
+        <p class="lede">
+          Public REST API at <code>https://api.inaturalist.org/v1/</code>.
+          Documented at <a href="https://api.inaturalist.org/v1/docs">api.inaturalist.org/v1/docs</a>.
+        </p>
+
+        <h3>Request used</h3>
+        <pre>GET https://api.inaturalist.org/v1/observations
+       ?user_login=&lt;LOGIN&gt;
+       &amp;per_page=200
+       &amp;order_by=id
+       &amp;order=asc
+       &amp;id_above=&lt;LAST_ID&gt;
+
+Headers:
+  User-Agent: jekyll-inat-sync/0.1 (+https://github.com/...)
+  Accept:     application/json</pre>
+
+        <h3>Pagination</h3>
+        <p>
+          Keyset pagination via <code>id_above</code>: start with <code>id_above=0</code>,
+          ask for ascending order, capture the max <code>id</code> from the
+          returned page, repeat. More reliable than offset pagination for large
+          result sets and idempotent across concurrent uploads.
+        </p>
+
+        <h3>Relevant response fields (per observation)</h3>
+        <table>
+          <thead><tr><th>Field</th><th>Used for</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>Manifest key + post anchor.</td></tr>
+            <tr><td><code>uri</code></td><td>"View on iNaturalist" link.</td></tr>
+            <tr><td><code>observed_on</code></td><td>Backfill grouping key; date line in post body.</td></tr>
+            <tr><td><code>place_guess</code></td><td>Location text (already fuzzy / privacy-respecting).</td></tr>
+            <tr><td><code>description</code></td><td>User's narrative paragraph if present.</td></tr>
+            <tr><td><code>photos[].url</code></td><td>Hero + gallery. Swap <code>square</code> for <code>medium</code>.</td></tr>
+            <tr><td><code>taxon.preferred_common_name</code></td><td>Post heading; "Western Fence Lizard".</td></tr>
+            <tr><td><code>taxon.name</code></td><td>Scientific name italic line.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Rate limits</h3>
+        <ul>
+          <li>~100 requests/min, ~10,000/day (iNat's recommended-practices page).</li>
+          <li>Even 10k observations &times; (per_page 200) = ~50 requests. We're nowhere near the ceiling.</li>
+          <li>Script sleeps 0.7s between pages out of politeness; far below the limit.</li>
+        </ul>
+
+        <h3>Photo URL trick</h3>
+        <p>
+          The API returns <code>photos[].url</code> as the <code>square</code>
+          (75&times;75) thumbnail. Swap the path segment to get other sizes:
+        </p>
+        <pre>https://inaturalist-open-data.s3.amazonaws.com/photos/123/square.jpg
+                                                          ^^^^^^
+                                              swap to: small / medium / large / original</pre>
+      </section>
+
+      <!-- SCRIPT -->
+      <section id="script">
+        <h2>The sync script</h2>
+        <p class="lede">
+          <code>scripts/inat_sync.rb</code> &mdash; ~250 lines, Ruby stdlib only
+          (<code>net/http</code>, <code>json</code>, <code>yaml</code>, <code>erb</code>).
+        </p>
+
+        <h3>Flow</h3>
+        <ol>
+          <li>Parse CLI flags (<code>--user</code>, <code>--dry-run</code>, <code>--backfill</code>, <code>--photo-size</code>).</li>
+          <li>Load manifest from <code>_data/inat_published.yml</code>.</li>
+          <li>Fetch all observations via keyset pagination, sleeping 0.7s between pages.</li>
+          <li>Filter out IDs in the manifest.</li>
+          <li>Group: by <code>observed_on</code> if <code>--backfill</code>, else everything into today's group.</li>
+          <li>Render one post per group via ERB.</li>
+          <li>Append new IDs to the manifest and write it back.</li>
+        </ol>
+
+        <h3>Post filename pattern</h3>
+        <pre>_posts/YYYY-MM-DD-observations-&lt;slug&gt;-&lt;hash&gt;.md
+
+  YYYY-MM-DD    The post's date (run-date in steady-state, observed_on in backfill)
+  slug          Slugified common name of the hero observation
+  hash          6-char SHA1 of sorted obs IDs &mdash; idempotency guard</pre>
+        <p class="small">
+          The hash prevents accidental filename collisions when two runs on the
+          same date produce different post contents (rare edge case &mdash; e.g., a
+          backfill re-run after manually deleting a post).
+        </p>
+
+        <h3>Local testing</h3>
+        <pre>$ ruby scripts/test_renderer.rb
+$ ruby scripts/inat_sync.rb --user kueda --dry-run
+$ ruby scripts/inat_sync.rb --user kueda --backfill \
+    --posts-dir /tmp/_posts \
+    --manifest /tmp/_data/inat_published.yml</pre>
+      </section>
+
+      <!-- WORKFLOW -->
+      <section id="workflow">
+        <h2>GitHub Action workflow</h2>
+        <p class="lede">
+          <code>.github/workflows/inat-sync.yml</code>. Daily cron +
+          <code>workflow_dispatch</code> with a backfill toggle.
+        </p>
+
+        <pre>name: iNaturalist sync
+
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      backfill:
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: inat-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with: { ruby-version: "3.3", bundler-cache: true }
+
+      - name: Run sync
+        env:
+          INAT_USER: ${{ vars.INAT_USER }}
+          BACKFILL_FLAG: ${{ inputs.backfill &amp;&amp; '--backfill' || '' }}
+        run: ruby scripts/inat_sync.rb --user "$INAT_USER" $BACKFILL_FLAG
+
+      - name: Build Jekyll site (gate)
+        run: bundle exec jekyll build --strict_front_matter
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add _posts/ _data/inat_published.yml
+          git diff --quiet --staged || git commit -m "Sync iNaturalist $(date -u +%F)"
+          git push</pre>
+
+        <h3>Why a build gate?</h3>
+        <p>
+          If the script ever emits malformed frontmatter or a busted Liquid
+          tag, the Jekyll build fails &mdash; and we want that failure to happen in
+          CI, not on the live <code>gh-pages</code> build (which only sends you an email and
+          serves a stale site). <code>--strict_front_matter</code> turns
+          frontmatter parse errors into build failures.
+        </p>
+
+        <h3>Concurrency</h3>
+        <p>
+          <code>concurrency.group: inat-sync</code> means only one run executes
+          at a time. If a manual backfill is running and the daily cron fires,
+          the cron waits. Prevents two runs racing on the same manifest.
+        </p>
+      </section>
+
+      <!-- JEKYLL -->
+      <section id="jekyll">
+        <h2>Jekyll integration</h2>
+        <p class="lede">
+          Posts are regular <code>_posts/</code> entries tagged
+          <code>inaturalist</code>. A custom landing page renders them as a
+          photo grid.
+        </p>
+
+        <h3>Frontmatter shape (auto-generated)</h3>
+        <pre>---
+layout: post
+title: "Observations: Western Fence Lizard, Bush Beardtongue +3 more"
+date: 2026-05-19
+tags: [inaturalist]
+hero_photo: https://inaturalist-open-data.s3.amazonaws.com/photos/...medium.jpg
+inat_obs_count: 5
+inat_obs_ids: [362587875, 362587866, 362206620, 362150111, 362095001]
+---</pre>
+
+        <h3>Landing page</h3>
+        <p>
+          <code>observations.html</code> at site root, permalinked to
+          <code>/observations/</code>. Iterates <code>site.tags.inaturalist</code>
+          in reverse chronological order and renders the
+          <code>hero_photo</code> from each post's frontmatter as a tile.
+        </p>
+
+        <p class="small">Preview (CSS-only mockup &mdash; real version pulls hero photos from your obs):</p>
+        <div class="grid-tiles">
+          <div data-label="May 19 &middot; 5 obs"></div>
+          <div data-label="May 17 &middot; 2 obs"></div>
+          <div data-label="May 14 &middot; 1 obs"></div>
+          <div data-label="May 11 &middot; 8 obs"></div>
+          <div data-label="May 6 &middot; 3 obs"></div>
+          <div data-label="May 2 &middot; 1 obs"></div>
+          <div data-label="Apr 28 &middot; 4 obs"></div>
+          <div data-label="Apr 24 &middot; 2 obs"></div>
+        </div>
+
+        <h3>Why tags, not collections or categories?</h3>
+        <p>
+          User preference. Categories affect URLs (<code>/category/year/.../</code>),
+          which would change post permalinks. Collections add config and live
+          outside <code>_posts/</code>, which is more invasive. Tags are the
+          lightest touch and integrate with whatever existing tag system the
+          blog already has.
+        </p>
+      </section>
+
+      <!-- SETUP -->
+      <section id="setup">
+        <h2>Setup guide</h2>
+        <p class="lede">Steps to wire this into your real Jekyll blog repo.</p>
+
+        <h3>1. Copy the files</h3>
+        <table>
+          <thead><tr><th>From this folder</th><th>To your blog repo</th></tr></thead>
+          <tbody>
+            <tr><td><code>scripts/inat_sync.rb</code></td><td><code>scripts/inat_sync.rb</code></td></tr>
+            <tr><td><code>workflows/inat-sync.yml</code></td><td><code>.github/workflows/inat-sync.yml</code></td></tr>
+            <tr><td><code>jekyll/observations.html</code></td><td><code>observations.html</code> (site root)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>2. Set the repo variable</h3>
+        <p>
+          In your blog repo &rarr; <span class="kbd">Settings</span> &rarr;
+          <span class="kbd">Secrets and variables</span> &rarr;
+          <span class="kbd">Actions</span> &rarr;
+          <span class="kbd">Variables</span> tab, add:
+        </p>
+        <pre>Name:  INAT_USER
+Value: &lt;your iNaturalist user_login&gt;</pre>
+
+        <h3>3. Add to <code>_config.yml</code></h3>
+        <pre>inat_user: &lt;your iNat login&gt;   # used by observations.html for the header link</pre>
+
+        <h3>4. Run the one-time backfill</h3>
+        <ol>
+          <li>Go to <span class="kbd">Actions</span> &rarr; <span class="kbd">iNaturalist sync</span> &rarr; <span class="kbd">Run workflow</span>.</li>
+          <li>Check the <code>backfill</code> box.</li>
+          <li>Click run. Wait. Review the resulting commit. If happy, you're done.</li>
+          <li>If the backfill produced too many posts, revert the commit and tune the script before retrying.</li>
+        </ol>
+
+        <h3>5. Cron takes over</h3>
+        <p>Daily at 07:00 UTC the Action runs, posts anything new, no-ops if nothing.</p>
+
+        <blockquote>
+          <strong>Open item:</strong> the script's <code>USER_AGENT</code>
+          constant has a placeholder URL. Edit it to point to your blog repo
+          so iNat staff can reach you if the script misbehaves.
+        </blockquote>
+      </section>
+
+      <!-- PREVIEW -->
+      <section id="preview">
+        <h2>Sample output</h2>
+        <p class="lede">
+          What a generated post looks like rendered. Based on a live API
+          response captured from a test user during the investigation.
+        </p>
+
+        <div class="preview-card">
+          <h4>Maltese star-thistle</h4>
+          <p class="meta"><em>Centaurea melitensis</em> &middot; Carmel Valley, CA &middot; 2026-05-17</p>
+          <div class="photos">
+            <div>photo 1</div>
+            <div>photo 2</div>
+            <div>photo 3</div>
+            <div>photo 4</div>
+          </div>
+          <p class="small"><a href="#">View on iNaturalist &rarr;</a></p>
+        </div>
+
+        <div class="preview-card">
+          <h4>Cicadas</h4>
+          <p class="meta"><em>Cicadoidea</em> &middot; Hastings Natural History Reserve, Monterey County &middot; 2026-05-17</p>
+          <div class="photos"><div>photo 1</div></div>
+          <p>Cicada</p>
+          <p class="small"><a href="#">View on iNaturalist &rarr;</a></p>
+        </div>
+
+        <h3>Raw markdown</h3>
+        <pre>---
+layout: post
+title: "Observations: Maltese star-thistle, Cicadas +1 more"
+date: 2026-05-19
+tags: [inaturalist]
+hero_photo: https://inaturalist-open-data.s3.amazonaws.com/photos/661795206/medium.jpg
+inat_obs_count: 3
+inat_obs_ids: [362587875, 362587866, 362206620]
+---
+
+&lt;a id="obs-362587875"&gt;&lt;/a&gt;
+## Maltese star-thistle
+
+*Centaurea melitensis*
+
+Carmel Valley, CA 93924, USA &middot; 2026-05-17
+
+![Maltese star-thistle](https://inaturalist-open-data.s3.amazonaws.com/photos/661795206/medium.jpg){: .inat-photo }
+![Maltese star-thistle](https://inaturalist-open-data.s3.amazonaws.com/photos/661795243/medium.jpg){: .inat-photo }
+
+[View on iNaturalist &rarr;](https://www.inaturalist.org/observations/362587875)
+
+---</pre>
+      </section>
+
+      <!-- RISKS -->
+      <section id="risks">
+        <h2>Risks &amp; gotchas</h2>
+        <p class="lede">Stuff that could bite you, ordered by likelihood.</p>
+
+        <h3>iNat photo URL changes</h3>
+        <p>
+          Photos are hotlinked from <code>inaturalist-open-data.s3.amazonaws.com</code>.
+          If iNat ever migrates this bucket or changes the size-suffix
+          convention, every post on the blog shows broken images. Mitigation: a
+          one-off script to swap the host across all posts. Low probability;
+          high blast radius.
+        </p>
+
+        <h3>Backfill is irreversible-ish</h3>
+        <p>
+          The first backfill writes one post per observed-on date &mdash; could be
+          dozens or hundreds of posts in a single commit. If you're not happy
+          with the formatting, revert and tune the template before retrying.
+          The manifest will have been updated by the failed run, so a retry
+          will see zero new observations &mdash; you'll need to <code>git checkout</code>
+          the manifest from before the backfill commit as well.
+        </p>
+
+        <h3>Geoprivacy edits after publish</h3>
+        <p>
+          If you set an observation to <code>obscured</code> or <code>private</code>
+          after a post is live, the post still shows the original
+          <code>place_guess</code>. We mitigated this by never showing
+          coordinates &mdash; only the (already fuzzy) place name &mdash; but the place
+          name itself could still be sensitive in some contexts. If this
+          worries you, hand-edit the affected post.
+        </p>
+
+        <h3>Identification changes after publish</h3>
+        <p>
+          By design, posts are snapshots. If a community ID corrects your
+          species after you've posted, the blog will keep the old name. The
+          post body links back to iNat, where the current ID is canonical.
+        </p>
+
+        <h3>API outage at run time</h3>
+        <p>
+          Script aborts with a non-zero exit on any non-2xx response. Nothing
+          gets committed. The next day's run picks up where this one stopped.
+        </p>
+
+        <h3>Workflow not running for 60+ days</h3>
+        <p>
+          GitHub disables scheduled workflows on repos with no activity for
+          60 days. Since this workflow itself commits to the repo whenever
+          there's new content, that resets the clock &mdash; but if you ever go 60
+          days without uploading to iNat <em>and</em> nobody pushes anything
+          else, the cron stops. Pushing any commit re-enables it.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const buttons = document.querySelectorAll('#nav button');
+    const sections = document.querySelectorAll('.main section');
+    function show(tab) {
+      buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      sections.forEach(s => s.classList.toggle('active', s.id === tab));
+      if (history.replaceState) history.replaceState(null, '', '#' + tab);
+    }
+    buttons.forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+    const initial = (location.hash || '#overview').slice(1);
+    if (document.getElementById(initial)) show(initial);
+  </script>
+</body>
+</html>
