@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Go REST API on Cloudflare Workers — A Tutorial</title>
+<script>
+  // No-flash theme: apply stored/system preference before first paint.
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Woodsy palette in OKLCH — forest greens + warm walnut/oak browns */
+    --accent:        oklch(0.62 0.11 150);   /* forest green */
+    --accent-soft:   oklch(0.62 0.11 150 / 0.14);
+    --warm:          oklch(0.66 0.09 65);     /* walnut/oak */
+    --warm-soft:     oklch(0.66 0.09 65 / 0.16);
+
+    --bg:            oklch(0.97 0.012 95);    /* parchment */
+    --bg-elev:       oklch(0.99 0.01 95);
+    --bg-sunken:     oklch(0.94 0.014 95);
+    --border:        oklch(0.86 0.015 90);
+    --text:          oklch(0.30 0.02 80);
+    --text-dim:      oklch(0.48 0.02 80);
+    --code-bg:       oklch(0.95 0.013 95);
+
+    --radius: 10px;
+    --sidebar-w: 260px;
+    --maxw: 940px;
+  }
+  [data-theme="dark"] {
+    --accent:        oklch(0.72 0.12 150);
+    --accent-soft:   oklch(0.72 0.12 150 / 0.16);
+    --warm:          oklch(0.74 0.08 70);
+    --warm-soft:     oklch(0.74 0.08 70 / 0.16);
+
+    --bg:            oklch(0.20 0.014 85);    /* deep loam */
+    --bg-elev:       oklch(0.24 0.016 85);
+    --bg-sunken:     oklch(0.17 0.012 85);
+    --border:        oklch(0.32 0.016 85);
+    --text:          oklch(0.90 0.012 90);
+    --text-dim:      oklch(0.66 0.014 88);
+    --code-bg:       oklch(0.16 0.012 85);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---------- Layout ---------- */
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: var(--sidebar-w);
+    flex: 0 0 var(--sidebar-w);
+    background: var(--bg-sunken);
+    border-right: 1px solid var(--border);
+    padding: 28px 18px;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+  }
+  .brand { margin-bottom: 6px; font-weight: 700; font-size: 15px; letter-spacing: -0.2px; }
+  .brand .dollar { color: var(--accent); }
+  .brand .path { color: var(--warm); }
+  .tagline { color: var(--text-dim); font-size: 12.5px; margin: 0 0 24px; }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  .tab-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: 13.5px; color: var(--text-dim);
+    text-align: left; padding: 9px 12px; border-radius: var(--radius);
+    width: 100%; transition: background .12s, color .12s;
+  }
+  .tab-btn:hover { background: var(--accent-soft); color: var(--text); }
+  .tab-btn.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+  .tab-btn .num { color: var(--warm); font-size: 12px; min-width: 16px; }
+
+  .sidebar-foot { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .theme-toggle {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-elev); border: 1px solid var(--border); color: var(--text-dim);
+    font-family: inherit; font-size: 12.5px; cursor: pointer;
+    padding: 8px 12px; border-radius: var(--radius); width: 100%;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ---------- Content ---------- */
+  main { flex: 1; min-width: 0; padding: 44px 40px 80px; }
+  .panel { display: none; max-width: var(--maxw); animation: fade .25s ease; }
+  .panel.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  h1 .prompt { color: var(--accent); }
+  .lede { color: var(--text-dim); margin: 0 0 30px; font-size: 14px; }
+  h2 { font-size: 17px; margin: 36px 0 10px; letter-spacing: -0.2px; }
+  h2 .hash { color: var(--warm); }
+  h3 { font-size: 14.5px; margin: 24px 0 8px; color: var(--warm); }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 700; }
+  [data-theme="dark"] strong { color: oklch(0.97 0.01 90); }
+
+  /* Callouts */
+  .note {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0;
+    margin: 18px 0; font-size: 13.5px;
+  }
+  .note.warm { border-left-color: var(--warm); background: var(--warm-soft); }
+  .note .label { font-weight: 700; color: var(--accent); display: block; margin-bottom: 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .note.warm .label { color: var(--warm); }
+
+  /* Code */
+  .code {
+    position: relative; background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); margin: 14px 0; overflow: hidden;
+  }
+  .code-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 14px; border-bottom: 1px solid var(--border);
+    font-size: 11.5px; color: var(--text-dim); background: var(--bg-sunken);
+  }
+  .code pre { margin: 0; padding: 16px; overflow-x: auto; font-size: 12.8px; line-height: 1.6; }
+  .code code { font-family: inherit; white-space: pre; }
+  .copy-btn {
+    background: none; border: 1px solid var(--border); color: var(--text-dim);
+    font-family: inherit; font-size: 11px; padding: 3px 9px; border-radius: 6px; cursor: pointer;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tok-cmt { color: var(--text-dim); font-style: italic; }
+  .tok-kw  { color: var(--accent); }
+  .tok-str { color: var(--warm); }
+  .tok-fn  { color: oklch(0.78 0.09 110); }
+  [data-theme="dark"] .tok-fn { color: oklch(0.82 0.10 115); }
+
+  /* Tables */
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--warm); font-weight: 700; border-bottom: 2px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  td .yes { color: var(--accent); } td .no { color: oklch(0.62 0.14 25); }
+
+  /* Stat cards */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 14px; margin: 18px 0; }
+  .stat { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat .big { font-size: 24px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
+  .stat .lbl { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li { position: relative; padding-left: 40px; margin-bottom: 18px; }
+  .steps li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: -2px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-size: 12.5px; font-weight: 700;
+  }
+
+  /* Calculator */
+  .calc { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; margin: 20px 0; }
+  .calc-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .calc-row label { font-size: 13px; color: var(--text-dim); flex: 1 1 200px; }
+  .calc-row input[type=range] { flex: 2 1 240px; accent-color: var(--accent); }
+  .calc-row .val { font-weight: 700; color: var(--warm); min-width: 110px; text-align: right; font-size: 13px; }
+  .calc-out { border-top: 1px solid var(--border); padding-top: 18px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .calc-out .price { font-size: 32px; font-weight: 700; color: var(--accent); }
+  .calc-out .breakdown { font-size: 12.5px; color: var(--text-dim); }
+  .pill { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 20px; background: var(--warm-soft); color: var(--warm); margin-left: 8px; vertical-align: middle; }
+  .pill.free { background: var(--accent-soft); color: var(--accent); }
+
+  .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0; font-size: 12.5px; }
+  .flow .box { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; text-align: center; }
+  .flow .box strong { display: block; color: var(--accent); }
+  .flow .arr { color: var(--warm); font-weight: 700; }
+
+  @media (max-width: 880px) {
+    .shell { flex-direction: column; }
+    .sidebar { width: 100%; flex: none; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+    nav { flex-direction: row; flex-wrap: wrap; }
+    .tab-btn { width: auto; }
+    main { padding: 28px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="dollar">$</span> go-on-workers</div>
+    <p class="tagline"><span class="path">~/</span>a stdlib-first field guide</p>
+    <nav id="nav">
+      <button class="tab-btn active" data-tab="overview"><span class="num">01</span> Overview</button>
+      <button class="tab-btn" data-tab="setup"><span class="num">02</span> Prerequisites</button>
+      <button class="tab-btn" data-tab="code"><span class="num">03</span> Write the API</button>
+      <button class="tab-btn" data-tab="deploy"><span class="num">04</span> Deploy</button>
+      <button class="tab-btn" data-tab="cost"><span class="num">05</span> Cost &amp; Free Tier</button>
+      <button class="tab-btn" data-tab="further"><span class="num">06</span> Going Further</button>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="theme-toggle" id="themeToggle">◐ toggle theme</button>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ===================== OVERVIEW ===================== -->
+    <section class="panel active" id="overview">
+      <h1><span class="prompt">$</span> Go REST APIs on Cloudflare Workers</h1>
+      <p class="lede">A beginner-friendly walkthrough that leans on the Go standard library and adds exactly one dependency.</p>
+
+      <h2><span class="hash">#</span> The one thing to understand first</h2>
+      <p>Cloudflare Workers do <strong>not</strong> run native binaries. Each Worker executes inside a <strong>V8 isolate</strong> — the same engine that runs JavaScript in Chrome — which can run JavaScript and <strong>WebAssembly (WASM)</strong>. So "Go on a Worker" really means:</p>
+
+      <div class="flow">
+        <div class="box"><strong>main.go</strong>standard net/http</div>
+        <span class="arr">→</span>
+        <div class="box"><strong>compile</strong>Go → WASM</div>
+        <span class="arr">→</span>
+        <div class="box"><strong>app.wasm</strong>+ tiny JS shim</div>
+        <span class="arr">→</span>
+        <div class="box"><strong>Cloudflare edge</strong>300+ cities</div>
+      </div>
+
+      <p>The glue is one package: <a href="https://github.com/syumai/workers" target="_blank">github.com/syumai/workers</a>. It catches the Worker's <code>fetch</code> event and feeds it to a plain Go <code>http.Handler</code>. Everything else you write is ordinary standard-library Go.</p>
+
+      <div class="note">
+        <span class="label">Why this is great for beginners</span>
+        If you can write a <code>net/http</code> server on your laptop, you can write a Worker. The deployment target changes; the Go you write barely does.
+      </div>
+
+      <h2><span class="hash">#</span> No web framework required</h2>
+      <p>As of <strong>Go 1.22</strong>, the standard-library router (<code>http.ServeMux</code>) understands HTTP methods and path wildcards. A full REST API with typed routes needs zero third-party packages:</p>
+      <div class="code">
+        <div class="code-head"><span>routing — pure stdlib</span></div>
+        <pre><code><span class="tok-kw">mux</span>.HandleFunc(<span class="tok-str">"GET /books/{id}"</span>, getBook)
+<span class="tok-kw">id</span> := r.PathValue(<span class="tok-str">"id"</span>) <span class="tok-cmt">// reads {id} — built in since Go 1.22</span></code></pre>
+      </div>
+
+      <h2><span class="hash">#</span> What you'll build</h2>
+      <p>A small <strong>books CRUD API</strong> — list, fetch, create, delete — returning JSON, deployed to a public <code>*.workers.dev</code> URL. Then we'll cost it out.</p>
+      <div class="stats">
+        <div class="stat"><div class="big">1</div><div class="lbl">external dependency</div></div>
+        <div class="stat"><div class="big">~90</div><div class="lbl">lines of Go</div></div>
+        <div class="stat"><div class="big">$0</div><div class="lbl">to run on the free tier</div></div>
+        <div class="stat"><div class="big">300+</div><div class="lbl">edge cities, automatic</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== SETUP ===================== -->
+    <section class="panel" id="setup">
+      <h1><span class="prompt">$</span> Prerequisites</h1>
+      <p class="lede">Three tools, then a one-command scaffold.</p>
+
+      <h2><span class="hash">#</span> Install the toolchain</h2>
+      <table>
+        <tr><th>Tool</th><th>Why</th><th>Check</th></tr>
+        <tr><td><strong>Go 1.24+</strong></td><td>compiles your code to WASM</td><td><code>go version</code></td></tr>
+        <tr><td><strong>Node.js + npm</strong></td><td>runs Wrangler, the deploy CLI</td><td><code>node -v</code></td></tr>
+        <tr><td><strong>TinyGo 0.29+</strong> <span class="pill free">free-tier only</span></td><td>shrinks the binary to fit the free plan</td><td><code>tinygo version</code></td></tr>
+      </table>
+      <div class="note warm">
+        <span class="label">TinyGo is optional at first</span>
+        Skip it while learning — regular Go works for local dev and the paid plan. You only need TinyGo to fit the <strong>3 MB free-plan size limit</strong> (covered in the Cost tab).
+      </div>
+
+      <h2><span class="hash">#</span> Scaffold the project</h2>
+      <p>The maintainers ship official templates. This one command creates the folder, the Go module, the JS shim, and a working <code>wrangler.toml</code>:</p>
+      <div class="code">
+        <div class="code-head"><span>terminal</span><button class="copy-btn">copy</button></div>
+        <pre><code>npm create cloudflare@latest -- \
+  --template github.com/syumai/workers/_templates/cloudflare/worker-go
+
+cd my-app
+go mod tidy</code></pre>
+      </div>
+      <p>For the free-tier build, use the TinyGo template instead: <code>.../worker-tinygo</code>.</p>
+
+      <h2><span class="hash">#</span> Run it locally</h2>
+      <div class="code">
+        <div class="code-head"><span>terminal</span><button class="copy-btn">copy</button></div>
+        <pre><code>npm start                       <span class="tok-cmt"># wraps `wrangler dev`</span>
+curl http://localhost:8787/hello</code></pre>
+      </div>
+      <p>Wrangler runs the real Workers runtime locally (via <code>workerd</code>), so what you see on <code>localhost</code> is what runs at the edge.</p>
+    </section>
+
+    <!-- ===================== CODE ===================== -->
+    <section class="panel" id="code">
+      <h1><span class="prompt">$</span> Write the API</h1>
+      <p class="lede">Replace the template's <code>main.go</code> with this. It's standard library top to bottom, except the final bridge call.</p>
+
+      <h2><span class="hash">#</span> 1. Model &amp; in-memory store</h2>
+      <div class="code">
+        <div class="code-head"><span>main.go</span><button class="copy-btn">copy</button></div>
+        <pre><code><span class="tok-kw">type</span> Book <span class="tok-kw">struct</span> {
+    ID     <span class="tok-kw">int</span>    <span class="tok-str">`json:"id"`</span>
+    Title  <span class="tok-kw">string</span> <span class="tok-str">`json:"title"`</span>
+    Author <span class="tok-kw">string</span> <span class="tok-str">`json:"author"`</span>
+}
+
+<span class="tok-cmt">// In-memory + per-isolate + ephemeral. Fine for a demo;
+// use Workers KV / D1 for real persistence (see Going Further).</span>
+<span class="tok-kw">var</span> db = newStore()</code></pre>
+      </div>
+      <div class="note warm">
+        <span class="label">The struct tags do the JSON</span>
+        <code>`json:"title"`</code> tells <code>encoding/json</code> how to name fields. No serialization library needed.
+      </div>
+
+      <h2><span class="hash">#</span> 2. A handler — read a path param</h2>
+      <div class="code">
+        <div class="code-head"><span>main.go — GET /books/{id}</span><button class="copy-btn">copy</button></div>
+        <pre><code><span class="tok-kw">func</span> <span class="tok-fn">getBook</span>(w http.ResponseWriter, r *http.Request) {
+    id, err := strconv.Atoi(r.PathValue(<span class="tok-str">"id"</span>))   <span class="tok-cmt">// {id} wildcard</span>
+    <span class="tok-kw">if</span> err != <span class="tok-kw">nil</span> {
+        writeJSON(w, http.StatusBadRequest, map[<span class="tok-kw">string</span>]<span class="tok-kw">string</span>{<span class="tok-str">"error"</span>: <span class="tok-str">"id must be a number"</span>})
+        <span class="tok-kw">return</span>
+    }
+    b, ok := db.books[id]
+    <span class="tok-kw">if</span> !ok {
+        writeJSON(w, http.StatusNotFound, map[<span class="tok-kw">string</span>]<span class="tok-kw">string</span>{<span class="tok-str">"error"</span>: <span class="tok-str">"book not found"</span>})
+        <span class="tok-kw">return</span>
+    }
+    writeJSON(w, http.StatusOK, b)
+}</code></pre>
+      </div>
+
+      <h2><span class="hash">#</span> 3. Wire routes &amp; hand off to the Worker</h2>
+      <div class="code">
+        <div class="code-head"><span>main.go — func main()</span><button class="copy-btn">copy</button></div>
+        <pre><code><span class="tok-kw">func</span> <span class="tok-fn">main</span>() {
+    mux := http.NewServeMux()
+    mux.HandleFunc(<span class="tok-str">"GET /books"</span>,        listBooks)
+    mux.HandleFunc(<span class="tok-str">"GET /books/{id}"</span>,   getBook)
+    mux.HandleFunc(<span class="tok-str">"POST /books"</span>,       createBook)
+    mux.HandleFunc(<span class="tok-str">"DELETE /books/{id}"</span>, deleteBook)
+
+    <span class="tok-cmt">// The ONLY non-stdlib line. Registers a fetch listener and
+    // blocks forever — never let main() return.</span>
+    workers.Serve(mux)
+}</code></pre>
+      </div>
+      <div class="note">
+        <span class="label">Gotcha</span>
+        <code>workers.Serve</code> must <strong>not</strong> return. If <code>main()</code> exits, your Worker exits. Don't put cleanup code after it.
+      </div>
+      <p>The complete file is in <code>worker/main.go</code> in this folder — including <code>listBooks</code>, <code>createBook</code>, <code>deleteBook</code>, and the <code>writeJSON</code> helper.</p>
+
+      <h2><span class="hash">#</span> Try it</h2>
+      <div class="code">
+        <div class="code-head"><span>terminal</span><button class="copy-btn">copy</button></div>
+        <pre><code>curl localhost:8787/books
+curl -X POST localhost:8787/books \
+  -H <span class="tok-str">'content-type: application/json'</span> \
+  -d <span class="tok-str">'{"title":"The Go Programming Language","author":"Donovan"}'</span></code></pre>
+      </div>
+    </section>
+
+    <!-- ===================== DEPLOY ===================== -->
+    <section class="panel" id="deploy">
+      <h1><span class="prompt">$</span> Deploy to the edge</h1>
+      <p class="lede">From localhost to a global URL in three steps.</p>
+
+      <ol class="steps">
+        <li>
+          <h3>Authenticate Wrangler with Cloudflare</h3>
+          <div class="code"><div class="code-head"><span>terminal</span><button class="copy-btn">copy</button></div>
+          <pre><code>npx wrangler login   <span class="tok-cmt"># opens a browser, one time</span></code></pre></div>
+          A free Cloudflare account is all you need.
+        </li>
+        <li>
+          <h3>Build the WASM and deploy</h3>
+          <div class="code"><div class="code-head"><span>terminal</span><button class="copy-btn">copy</button></div>
+          <pre><code>npx wrangler deploy</code></pre></div>
+          Wrangler runs the <code>[build]</code> command from <code>wrangler.toml</code> (generate JS glue → <code>go build</code> to WASM), then uploads it. You'll get a live URL:
+          <div class="code"><div class="code-head"><span>output</span></div>
+          <pre><code>https://books-worker.&lt;your-subdomain&gt;.workers.dev</code></pre></div>
+        </li>
+        <li>
+          <h3>Hit your live API</h3>
+          <div class="code"><div class="code-head"><span>terminal</span><button class="copy-btn">copy</button></div>
+          <pre><code>curl https://books-worker.&lt;you&gt;.workers.dev/books</code></pre></div>
+          It's now served from the Cloudflare edge — requests hit the nearest of 300+ cities automatically.
+        </li>
+      </ol>
+
+      <h2><span class="hash">#</span> What's in wrangler.toml</h2>
+      <div class="code">
+        <div class="code-head"><span>wrangler.toml</span><button class="copy-btn">copy</button></div>
+        <pre><code>name = <span class="tok-str">"books-worker"</span>
+main = <span class="tok-str">"./build/worker.mjs"</span>        <span class="tok-cmt"># JS shim that boots the WASM</span>
+compatibility_date = <span class="tok-str">"2025-01-01"</span>
+
+[build]
+command = <span class="tok-str">"go run github.com/syumai/workers/cmd/workers-assets-gen -mode=go \
+  && GOOS=js GOARCH=wasm go build -o ./build/app.wasm ."</span></code></pre>
+      </div>
+      <div class="note warm">
+        <span class="label">Free-tier build</span>
+        Swap the second build line for <code>tinygo build -o ./build/app.wasm -target wasm .</code> (and <code>-mode=tinygo</code>) to produce a sub-1 MB binary that fits the free plan.
+      </div>
+
+      <h2><span class="hash">#</span> Custom domains</h2>
+      <p>In the Cloudflare dashboard you can map a Worker to <code>api.yourdomain.com</code> for free if the domain's DNS is on Cloudflare — no extra config in code.</p>
+    </section>
+
+    <!-- ===================== COST ===================== -->
+    <section class="panel" id="cost">
+      <h1><span class="prompt">$</span> Cost &amp; Free Tier</h1>
+      <p class="lede">The honest numbers — and an interactive estimator. Verified against Cloudflare's pricing docs, June 2026.</p>
+
+      <h2><span class="hash">#</span> The two plans</h2>
+      <table>
+        <tr><th>&nbsp;</th><th>Free</th><th>Paid (Workers Standard)</th></tr>
+        <tr><td>Monthly cost</td><td class="yes">$0</td><td>$5 minimum</td></tr>
+        <tr><td>Requests</td><td>100,000 / <strong>day</strong></td><td>10,000,000 / mo incl, then $0.30/M</td></tr>
+        <tr><td>CPU time</td><td>10 ms / request</td><td>30M CPU-ms incl, then $0.02/M</td></tr>
+        <tr><td>Max Worker size</td><td class="no">3 MB</td><td>10 MB</td></tr>
+        <tr><td>Wall-clock waiting</td><td>not billed</td><td>not billed</td></tr>
+      </table>
+      <div class="note">
+        <span class="label">CPU time ≠ wall-clock time</span>
+        You're billed for <strong>CPU</strong>, not total duration. Waiting on a database or upstream API is free — only the milliseconds your code actively computes count. A typical JSON handler uses a few ms.
+      </div>
+
+      <h2><span class="hash">#</span> What can the free tier really handle?</h2>
+      <div class="stats">
+        <div class="stat"><div class="big">100k</div><div class="lbl">requests / day</div></div>
+        <div class="stat"><div class="big">~1.16</div><div class="lbl">req/sec sustained, all day</div></div>
+        <div class="stat"><div class="big">~3M</div><div class="lbl">requests / month</div></div>
+        <div class="stat"><div class="big">$0</div><div class="lbl">forever, no card</div></div>
+      </div>
+      <p>For a personal API, a webhook receiver, a portfolio backend, or a low-traffic SaaS, the free tier is genuinely enough. For a JSON API you'll hit the <strong>request</strong> cap long before the CPU cap. The real constraint on free is the <strong>3 MB binary size</strong> — which is why TinyGo exists.</p>
+
+      <h2><span class="hash">#</span> Estimate your bill</h2>
+      <div class="calc">
+        <div class="calc-row">
+          <label>Requests per month</label>
+          <input type="range" id="req" min="0" max="100000000" step="100000" value="5000000">
+          <span class="val" id="reqVal">5,000,000</span>
+        </div>
+        <div class="calc-row">
+          <label>CPU per request (ms)</label>
+          <input type="range" id="cpu" min="1" max="50" step="1" value="3">
+          <span class="val" id="cpuVal">3 ms</span>
+        </div>
+        <div class="calc-out">
+          <span class="price" id="price">$5.00</span>
+          <span class="breakdown" id="breakdown"></span>
+          <span class="pill" id="planPill">paid</span>
+        </div>
+      </div>
+      <div class="note warm">
+        <span class="label">Reading the estimate</span>
+        Free if you stay under 100k req/day. Otherwise it's the $5 base, plus request overage above 10M, plus CPU overage above 30M CPU-ms. Most small APIs sit flat at <strong>$5/mo</strong>.
+      </div>
+
+      <h2><span class="hash">#</span> Guard against surprise bills</h2>
+      <p>Set a hard CPU ceiling per request in <code>wrangler.toml</code> so a runaway loop can't run up charges:</p>
+      <div class="code"><div class="code-head"><span>wrangler.toml</span><button class="copy-btn">copy</button></div>
+      <pre><code>[limits]
+cpu_ms = 50   <span class="tok-cmt"># request is killed past this</span></code></pre></div>
+    </section>
+
+    <!-- ===================== FURTHER ===================== -->
+    <section class="panel" id="further">
+      <h1><span class="prompt">$</span> Going Further</h1>
+      <p class="lede">Where to go once the basics work.</p>
+
+      <h2><span class="hash">#</span> Real persistence</h2>
+      <p>Module globals (our <code>map</code>) live per-isolate and vanish. For durable data, bind a storage product — all have generous free tiers:</p>
+      <table>
+        <tr><th>Product</th><th>Use it for</th></tr>
+        <tr><td><strong>Workers KV</strong></td><td>simple key/value, read-heavy, eventually consistent</td></tr>
+        <tr><td><strong>D1</strong></td><td>SQLite at the edge — real SQL, relational data</td></tr>
+        <tr><td><strong>Durable Objects</strong></td><td>strongly-consistent state, coordination, websockets</td></tr>
+        <tr><td><strong>R2</strong></td><td>object/blob storage, S3-compatible, no egress fees</td></tr>
+      </table>
+      <p>The <code>syumai/workers</code> package exposes Go bindings (e.g. a <code>cloudflare/kv</code> sub-package) so you read these from Go.</p>
+
+      <h2><span class="hash">#</span> The stdlib-vs-TinyGo decision</h2>
+      <table>
+        <tr><th>&nbsp;</th><th>Regular Go</th><th>TinyGo</th></tr>
+        <tr><td>Standard library</td><td class="yes">full</td><td>partial</td></tr>
+        <tr><td>Binary size</td><td>3–8 MB</td><td class="yes">&lt; 1 MB</td></tr>
+        <tr><td>Fits free plan</td><td class="no">usually no</td><td class="yes">yes</td></tr>
+        <tr><td>Reflection-heavy libs</td><td class="yes">yes</td><td>limited</td></tr>
+      </table>
+      <p><strong>Recommended path:</strong> develop with regular Go (everything works), then switch the build to TinyGo for free-tier deploys. For a plain JSON API — <code>encoding/json</code>, <code>net/http</code> routing, <code>strconv</code> — TinyGo handles it fine.</p>
+
+      <h2><span class="hash">#</span> Production checklist</h2>
+      <ul>
+        <li>Add CORS headers if a browser frontend calls the API.</li>
+        <li>Validate &amp; bound request bodies — never trust input.</li>
+        <li>Return consistent JSON error shapes (the demo's <code>writeJSON</code> helps).</li>
+        <li>Add a <code>GET /healthz</code> route for uptime monitoring (included in the demo).</li>
+        <li>Set <code>[limits] cpu_ms</code> to cap cost.</li>
+        <li>Use <code>wrangler tail</code> to stream live logs from production.</li>
+      </ul>
+
+      <h2><span class="hash">#</span> Sources &amp; further reading</h2>
+      <ul>
+        <li><a href="https://github.com/syumai/workers" target="_blank">github.com/syumai/workers</a> — the bridge package &amp; templates</li>
+        <li><a href="https://developers.cloudflare.com/workers/platform/pricing/" target="_blank">Cloudflare Workers pricing</a></li>
+        <li><a href="https://developers.cloudflare.com/workers/platform/limits/" target="_blank">Workers limits</a></li>
+        <li><a href="https://go.dev/blog/routing-enhancements" target="_blank">Go 1.22 routing enhancements</a></li>
+      </ul>
+    </section>
+  </main>
+</div>
+
+<script>
+  // ---------- Tabs ----------
+  const nav = document.getElementById('nav');
+  nav.addEventListener('click', e => {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+    document.querySelector('main').scrollTo(0, 0);
+    window.scrollTo(0, 0);
+  });
+
+  // ---------- Theme toggle ----------
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+  });
+
+  // ---------- Copy buttons ----------
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.closest('.code').querySelector('code').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const t = btn.textContent; btn.textContent = 'copied ✓';
+        setTimeout(() => btn.textContent = t, 1200);
+      });
+    });
+  });
+
+  // ---------- Cost calculator ----------
+  const req = document.getElementById('req'), cpu = document.getElementById('cpu');
+  const reqVal = document.getElementById('reqVal'), cpuVal = document.getElementById('cpuVal');
+  const price = document.getElementById('price'), breakdown = document.getElementById('breakdown');
+  const planPill = document.getElementById('planPill');
+  const fmt = n => n.toLocaleString('en-US');
+
+  function calc() {
+    const reqs = +req.value, cpuMs = +cpu.value;
+    reqVal.textContent = fmt(reqs);
+    cpuVal.textContent = cpuMs + ' ms';
+
+    // Free plan: 100k/day ~= 3,000,000/month, and binary must fit 3MB.
+    const freeMonthly = 3000000;
+    if (reqs <= freeMonthly) {
+      price.textContent = '$0.00';
+      planPill.textContent = 'free'; planPill.className = 'pill free';
+      breakdown.textContent = '≈ ' + fmt(Math.round(reqs / 30)) + ' req/day — within the 100k/day free cap';
+      return;
+    }
+
+    // Paid plan math.
+    const base = 5;
+    const inclReq = 10000000, inclCpu = 30000000; // CPU-ms included
+    const reqOverM = Math.max(0, (reqs - inclReq) / 1000000);
+    const reqCost = reqOverM * 0.30;
+    const cpuUsed = reqs * cpuMs;
+    const cpuOverM = Math.max(0, (cpuUsed - inclCpu) / 1000000);
+    const cpuCost = cpuOverM * 0.02;
+    const total = base + reqCost + cpuCost;
+
+    price.textContent = '$' + total.toFixed(2);
+    planPill.textContent = 'paid'; planPill.className = 'pill';
+    breakdown.textContent =
+      '$5 base' +
+      (reqCost > 0 ? ' + $' + reqCost.toFixed(2) + ' requests' : '') +
+      (cpuCost > 0 ? ' + $' + cpuCost.toFixed(2) + ' CPU' : '') +
+      ' / mo';
+  }
+  req.addEventListener('input', calc);
+  cpu.addEventListener('input', calc);
+  calc();
+</script>
+</body>
+</html>
