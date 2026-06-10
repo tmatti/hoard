@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls /Users/tim/dev/github/tmatti/)"
+      "Bash(ls /Users/tim/dev/github/tmatti/)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developers.cloudflare.com)"
     ]
   }
 }
