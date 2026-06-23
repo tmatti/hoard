@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GitHub License Options — Pros & Cons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  // no-flash theme init
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+<style>
+  :root {
+    --bg:        oklch(22% 0.012 110);
+    --bg-2:      oklch(26% 0.014 110);
+    --panel:     oklch(28% 0.016 115);
+    --panel-2:   oklch(31% 0.018 115);
+    --border:    oklch(38% 0.018 110);
+    --border-2:  oklch(45% 0.02 110);
+    --text:      oklch(90% 0.012 100);
+    --text-dim:  oklch(72% 0.014 105);
+    --text-faint:oklch(58% 0.014 105);
+    --accent:    oklch(62% 0.12 145);   /* forest green */
+    --accent-2:  oklch(70% 0.13 140);
+    --warm:      oklch(64% 0.09 70);     /* walnut/oak */
+    --warm-2:    oklch(72% 0.10 72);
+    --good:      oklch(66% 0.13 150);
+    --bad:       oklch(63% 0.13 35);
+    --warn:      oklch(70% 0.11 80);
+    --shadow:    0 1px 3px oklch(15% 0.01 110 / 0.5), 0 6px 20px oklch(12% 0.01 110 / 0.35);
+  }
+  [data-theme="light"] {
+    --bg:        oklch(95% 0.015 95);
+    --bg-2:      oklch(92% 0.016 95);
+    --panel:     oklch(97.5% 0.012 95);
+    --panel-2:   oklch(94% 0.014 95);
+    --border:    oklch(82% 0.02 95);
+    --border-2:  oklch(74% 0.024 95);
+    --text:      oklch(28% 0.02 100);
+    --text-dim:  oklch(42% 0.02 100);
+    --text-faint:oklch(55% 0.02 100);
+    --accent:    oklch(50% 0.13 145);
+    --accent-2:  oklch(45% 0.14 145);
+    --warm:      oklch(50% 0.1 65);
+    --warm-2:    oklch(44% 0.11 62);
+    --good:      oklch(52% 0.14 150);
+    --bad:       oklch(53% 0.16 32);
+    --warn:      oklch(56% 0.12 75);
+    --shadow:    0 1px 3px oklch(60% 0.02 95 / 0.25), 0 6px 20px oklch(55% 0.02 95 / 0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 260px;
+    flex: 0 0 260px;
+    background: var(--bg-2);
+    border-right: 1px solid var(--border);
+    padding: 22px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .brand { margin-bottom: 22px; }
+  .brand .prompt { color: var(--accent); font-weight: 700; }
+  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; margin-top: 4px; }
+  .brand p { color: var(--text-faint); font-size: 11.5px; margin-top: 4px; }
+
+  nav { display: flex; flex-direction: column; gap: 3px; }
+  .nav-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-dim);
+    font-family: inherit; font-size: 13px; text-align: left;
+    padding: 9px 11px; border-radius: 8px; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+    width: 100%;
+  }
+  .nav-btn:hover { background: var(--panel); color: var(--text); }
+  .nav-btn.active { background: var(--panel-2); color: var(--text); border-color: var(--border-2); }
+  .nav-btn .tilde { color: var(--accent); opacity: .8; font-weight: 600; }
+  .nav-btn.active .tilde { color: var(--accent-2); }
+  .nav-num { margin-left: auto; color: var(--text-faint); font-size: 11px; }
+
+  .sidebar-footer { margin-top: auto; padding-top: 18px; }
+  .theme-toggle {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    width: 100%; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text-dim); font-family: inherit; font-size: 12px;
+    padding: 8px; border-radius: 8px; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .theme-toggle:hover { background: var(--panel-2); color: var(--text); }
+
+  /* ---------- Main ---------- */
+  .main { flex: 1; min-width: 0; padding: 36px 44px 80px; max-width: 1180px; }
+  .tab { display: none; animation: fade .25s ease; }
+  .tab.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px);} to {opacity:1; transform:none;} }
+
+  .tab-head { margin-bottom: 26px; }
+  .tab-head .eyebrow { color: var(--accent); font-size: 12px; font-weight: 600; letter-spacing: .5px; }
+  .tab-head h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-top: 4px; }
+  .tab-head p { color: var(--text-dim); margin-top: 8px; max-width: 760px; font-size: 13.5px; }
+
+  .section-label { font-size: 12px; color: var(--accent); font-weight: 600; letter-spacing:.4px; margin: 30px 0 12px; text-transform: uppercase; }
+
+  /* cards */
+  .grid { display: grid; gap: 14px; }
+  .cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; box-shadow: var(--shadow);
+  }
+  .card h3 { font-size: 15px; font-weight: 700; }
+  .card .sub { color: var(--text-faint); font-size: 11.5px; margin-top: 2px; }
+
+  .pill {
+    display: inline-block; font-size: 10.5px; font-weight: 600;
+    padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border-2);
+    color: var(--text-dim); letter-spacing: .3px;
+  }
+  .pill.permissive { color: var(--accent-2); border-color: color-mix(in oklch, var(--accent) 50%, var(--border)); background: color-mix(in oklch, var(--accent) 12%, transparent); }
+  .pill.copyleft   { color: var(--warm-2);   border-color: color-mix(in oklch, var(--warm) 50%, var(--border));   background: color-mix(in oklch, var(--warm) 14%, transparent); }
+  .pill.public     { color: var(--text-dim); border-color: var(--border-2); background: var(--panel-2); }
+
+  /* family spectrum */
+  .spectrum { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 8px 0 6px; }
+  .spec-col { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .spec-col .tier { font-size: 11px; font-weight: 700; letter-spacing:.4px; text-transform: uppercase; }
+  .spec-col .desc { color: var(--text-faint); font-size: 11px; margin: 6px 0 10px; min-height: 46px; }
+  .spec-col ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .spec-col li { font-size: 12px; padding: 4px 8px; background: var(--panel-2); border-radius: 6px; border: 1px solid var(--border); }
+  .spectrum-bar { height: 8px; border-radius: 6px; margin: 4px 0 18px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 25%, var(--warm-2) 60%, var(--warm) 80%, var(--text-faint) 100%); }
+  .spectrum-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-faint); margin-bottom: 4px; }
+
+  /* matrix */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; min-width: 860px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  thead th { background: var(--bg-2); position: sticky; top: 0; color: var(--text-dim); font-weight: 600; font-size: 11px; letter-spacing:.3px; }
+  tbody tr:hover { background: var(--panel); }
+  td.name { font-weight: 700; color: var(--text); }
+  td.name .spdx { display:block; color: var(--text-faint); font-weight: 400; font-size: 10.5px; }
+  .yes { color: var(--good); font-weight: 700; }
+  .no  { color: var(--bad); font-weight: 700; }
+  .mid { color: var(--warn); font-weight: 700; }
+  .cell-note { color: var(--text-faint); font-size: 11px; }
+  .legend { display:flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: 11.5px; color: var(--text-dim); }
+  .legend span b { font-weight: 700; }
+
+  /* pros cons */
+  .pc-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0; overflow: hidden; box-shadow: var(--shadow); }
+  .pc-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display:flex; align-items: flex-start; gap: 10px; }
+  .pc-head .info { flex: 1; }
+  .pc-head h3 { font-size: 15px; }
+  .pc-head .sub { color: var(--text-faint); font-size: 11px; margin-top: 3px; }
+  .pc-body { display: grid; grid-template-columns: 1fr 1fr; }
+  .pc-col { padding: 13px 16px; }
+  .pc-col.pros { border-right: 1px solid var(--border); }
+  .pc-col h4 { font-size: 11px; letter-spacing:.4px; text-transform: uppercase; margin-bottom: 8px; }
+  .pc-col.pros h4 { color: var(--good); }
+  .pc-col.cons h4 { color: var(--bad); }
+  .pc-col ul { list-style: none; display:flex; flex-direction: column; gap: 7px; }
+  .pc-col li { font-size: 12px; color: var(--text-dim); padding-left: 16px; position: relative; line-height: 1.5; }
+  .pc-col.pros li::before { content: "+"; position: absolute; left: 0; color: var(--good); font-weight: 700; }
+  .pc-col.cons li::before { content: "\2212"; position: absolute; left: 0; color: var(--bad); font-weight: 700; }
+  .best { font-size: 11.5px; color: var(--text-dim); padding: 11px 16px; border-top: 1px solid var(--border); background: var(--bg-2); }
+  .best b { color: var(--accent-2); }
+
+  .pc-filter { display:flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .fbtn { background: var(--panel); border: 1px solid var(--border); color: var(--text-dim); font-family: inherit; font-size: 12px; padding: 6px 13px; border-radius: 20px; cursor: pointer; transition: all .15s; }
+  .fbtn:hover { color: var(--text); border-color: var(--border-2); }
+  .fbtn.active { background: var(--accent); color: oklch(20% 0.02 145); border-color: var(--accent); font-weight: 600; }
+  [data-theme="light"] .fbtn.active { color: oklch(98% 0.01 145); }
+
+  /* decision flow */
+  .flow { display: flex; flex-direction: column; gap: 12px; }
+  .flow-step { display: flex; gap: 14px; align-items: flex-start; }
+  .flow-q { flex: 0 0 300px; background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px; padding: 13px 15px; }
+  .flow-q .qn { font-size: 11px; color: var(--accent); font-weight: 700; }
+  .flow-q .qt { font-size: 13px; margin-top: 3px; }
+  .flow-a { flex: 1; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  .flow-branch { display:flex; gap: 10px; align-items: baseline; font-size: 12.5px; }
+  .flow-branch .cond { color: var(--warm-2); font-weight: 600; flex: 0 0 130px; }
+  .flow-branch .res { color: var(--text-dim); }
+  .flow-branch .res b { color: var(--accent-2); }
+
+  .callout { background: color-mix(in oklch, var(--warm) 12%, var(--panel)); border: 1px solid color-mix(in oklch, var(--warm) 40%, var(--border)); border-radius: 10px; padding: 13px 16px; font-size: 12.5px; color: var(--text-dim); margin-top: 18px; }
+  .callout b { color: var(--warm-2); }
+
+  .disclaimer { margin-top: 34px; font-size: 11px; color: var(--text-faint); border-top: 1px dashed var(--border); padding-top: 14px; }
+
+  .stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .stat { flex: 1; min-width: 130px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .stat .num { font-size: 22px; font-weight: 700; color: var(--accent-2); }
+  .stat .lbl { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+  /* mobile */
+  .menu-btn { display: none; }
+  @media (max-width: 900px) {
+    .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); transition: transform .25s; z-index: 50; box-shadow: var(--shadow); }
+    .sidebar.open { transform: none; }
+    .main { padding: 70px 18px 60px; }
+    .menu-btn { display: flex; position: fixed; top: 14px; left: 14px; z-index: 60; background: var(--panel-2); border: 1px solid var(--border-2); color: var(--text); border-radius: 8px; padding: 8px 12px; font-family: inherit; cursor: pointer; }
+    .cols-3, .cols-2 { grid-template-columns: 1fr; }
+    .pc-grid { grid-template-columns: 1fr !important; }
+    .spectrum { grid-template-columns: 1fr; }
+    .flow-step { flex-direction: column; }
+    .flow-q { flex-basis: auto; }
+  }
+  .pc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+</style>
+</head>
+<body>
+<button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ menu</button>
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="prompt">$ choose-a-license</div>
+      <h1>GitHub License Options</h1>
+      <p>Pros &amp; cons of every license in the repo picker</p>
+    </div>
+    <nav id="nav">
+      <button class="nav-btn active" data-tab="overview"><span class="tilde">~/</span>overview<span class="nav-num">01</span></button>
+      <button class="nav-btn" data-tab="families"><span class="tilde">~/</span>families<span class="nav-num">02</span></button>
+      <button class="nav-btn" data-tab="matrix"><span class="tilde">~/</span>matrix<span class="nav-num">03</span></button>
+      <button class="nav-btn" data-tab="proscons"><span class="tilde">~/</span>pros-cons<span class="nav-num">04</span></button>
+      <button class="nav-btn" data-tab="decide"><span class="tilde">~/</span>decision-guide<span class="nav-num">05</span></button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" id="themeToggle"><span id="themeIcon">☀</span> <span id="themeLabel">light mode</span></button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- 01 OVERVIEW -->
+    <section class="tab active" data-tab="overview">
+      <div class="tab-head">
+        <div class="eyebrow">$ cat overview.md</div>
+        <h2>The 13 options in GitHub's license picker</h2>
+        <p>When you click <b>Add file → Create new file → LICENSE</b> (or "Choose a license"), GitHub
+        offers licenses curated by <a href="https://choosealicense.com">choosealicense.com</a>. They fall into
+        three families. The right pick is a trade-off between <b>adoption</b> (how freely others can use your code)
+        and <b>protection</b> (how much you force back into the open).</p>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><div class="num">5</div><div class="lbl">permissive licenses</div></div>
+        <div class="stat"><div class="num">6</div><div class="lbl">copyleft licenses</div></div>
+        <div class="stat"><div class="num">2</div><div class="lbl">public-domain options</div></div>
+        <div class="stat"><div class="num">7</div><div class="lbl">grant patent rights</div></div>
+      </div>
+
+      <div class="section-label">The core trade-off</div>
+      <div class="grid cols-3">
+        <div class="card">
+          <span class="pill permissive">Permissive</span>
+          <h3 style="margin-top:10px">Maximize adoption</h3>
+          <p class="sub" style="margin-top:8px;line-height:1.5">Let anyone do almost anything — including building closed,
+          commercial products — as long as they keep your copyright notice. Best for libraries, frameworks, and
+          wide reach. <i>MIT, Apache-2.0, BSD, Boost.</i></p>
+        </div>
+        <div class="card">
+          <span class="pill copyleft">Copyleft</span>
+          <h3 style="margin-top:10px">Keep it open</h3>
+          <p class="sub" style="margin-top:8px;line-height:1.5">Anyone can use it, but derivatives must stay open under
+          the same/compatible license and ship source. Scope ranges from a single file to the whole work to network use.
+          <i>MPL, LGPL, EPL, GPL, AGPL.</i></p>
+        </div>
+        <div class="card">
+          <span class="pill public">Public domain</span>
+          <h3 style="margin-top:10px">No strings at all</h3>
+          <p class="sub" style="margin-top:8px;line-height:1.5">Waive essentially all rights. No attribution required.
+          Maximum freedom, but weaker legal footing and no patent grant. <i>Unlicense, CC0.</i></p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <b>Rule of thumb:</b> Want the widest possible use with least friction? <b>MIT</b>.
+        Same, but you also want explicit patent protection? <b>Apache-2.0</b>.
+        Want improvements to come back to you? <b>MPL-2.0</b> (file-level) or <b>GPL</b> (whole-app).
+        Running a network service and want SaaS users to get the source? <b>AGPL-3.0</b>.
+      </div>
+
+      <div class="disclaimer">⚠ Educational summary, not legal advice. Authoritative text lives at
+      choosealicense.com and the SPDX license list. When in doubt, consult a lawyer.</div>
+    </section>
+
+    <!-- 02 FAMILIES -->
+    <section class="tab" data-tab="families">
+      <div class="tab-head">
+        <div class="eyebrow">$ ./spectrum --plot</div>
+        <h2>License families: from permissive to network-copyleft</h2>
+        <p>The single most useful axis is <b>how much obligation a license imposes on people who build on your
+        code</b>. Left = none; right = strong, viral, network-spanning. Picking a family first narrows 13 options to 2–3.</p>
+      </div>
+
+      <div class="spectrum-ends"><span>← fewer obligations · max adoption</span><span>more obligations · max protection →</span></div>
+      <div class="spectrum-bar"></div>
+      <div class="spectrum">
+        <div class="spec-col">
+          <div class="tier" style="color:var(--text-faint)">Public domain</div>
+          <div class="desc">All rights waived. No attribution, no conditions.</div>
+          <ul><li>Unlicense</li><li>CC0-1.0</li></ul>
+        </div>
+        <div class="spec-col">
+          <div class="tier" style="color:var(--accent-2)">Permissive</div>
+          <div class="desc">Do anything, just keep the notice. Closed forks allowed.</div>
+          <ul><li>MIT</li><li>BSD-2 / BSD-3</li><li>Boost (BSL-1.0)</li><li>Apache-2.0</li></ul>
+        </div>
+        <div class="spec-col">
+          <div class="tier" style="color:var(--warm-2)">Weak copyleft</div>
+          <div class="desc">Only changed files / the library itself stay open.</div>
+          <ul><li>MPL-2.0 (file)</li><li>EPL-2.0 (file)</li><li>LGPL-3.0 (library)</li></ul>
+        </div>
+        <div class="spec-col">
+          <div class="tier" style="color:var(--warm)">Strong copyleft</div>
+          <div class="desc">Whole derivative work must be open under GPL.</div>
+          <ul><li>GPL-2.0</li><li>GPL-3.0</li></ul>
+        </div>
+        <div class="spec-col">
+          <div class="tier" style="color:var(--text-dim)">Network copyleft</div>
+          <div class="desc">Even SaaS users must be offered the source.</div>
+          <ul><li>AGPL-3.0</li></ul>
+        </div>
+      </div>
+
+      <div class="section-label">What "copyleft scope" actually means</div>
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>File-level (MPL, EPL)</h3>
+          <p class="sub" style="margin-top:6px;line-height:1.55">Changes to <i>licensed files</i> must be shared, but you can
+          combine them with proprietary files in a larger work. Friendliest copyleft for mixed/commercial codebases.</p>
+        </div>
+        <div class="card">
+          <h3>Library boundary (LGPL)</h3>
+          <p class="sub" style="margin-top:6px;line-height:1.55">Link the library (especially dynamically) into a proprietary
+          app freely; modifications <i>to the library</i> stay LGPL, and users must be able to swap in their own build.</p>
+        </div>
+        <div class="card">
+          <h3>Whole-work (GPL)</h3>
+          <p class="sub" style="margin-top:6px;line-height:1.55">Any program that incorporates GPL code becomes a derivative —
+          the entire thing must be distributed under the GPL with source. This is the "viral" reputation.</p>
+        </div>
+        <div class="card">
+          <h3>Network (AGPL)</h3>
+          <p class="sub" style="margin-top:6px;line-height:1.55">Closes the "SaaS loophole." If users interact with modified code
+          <i>over a network</i>, that counts as distribution — you must offer them the source too.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03 MATRIX -->
+    <section class="tab" data-tab="matrix">
+      <div class="tab-head">
+        <div class="eyebrow">$ ./compare --all</div>
+        <h2>Comparison matrix</h2>
+        <p>All 13 options side by side on the axes that matter most: how much they let users do, what conditions
+        they impose, whether they grant patent rights, and how compatible they are with the GPL.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>License</th>
+              <th>Family</th>
+              <th>Copyleft scope</th>
+              <th>Patent grant</th>
+              <th>Attribution req.</th>
+              <th>Disclose source</th>
+              <th>GPL-compatible</th>
+            </tr>
+          </thead>
+          <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+      <div class="legend">
+        <span><b class="yes">●</b> yes / strong</span>
+        <span><b class="mid">●</b> partial / conditional</span>
+        <span><b class="no">●</b> no / none</span>
+      </div>
+      <div class="callout" style="margin-top:20px">
+        <b>Compatibility gotcha:</b> Apache-2.0 is <i>not</i> compatible with GPL-2.0 (its patent terms clash) but
+        <i>is</i> compatible with GPL-3.0. GPL-2.0-only code can't be combined with GPL-3.0 code unless it's
+        "v2 or later." Mixing licenses is where most real-world legal pain comes from.
+      </div>
+    </section>
+
+    <!-- 04 PROS & CONS -->
+    <section class="tab" data-tab="proscons">
+      <div class="tab-head">
+        <div class="eyebrow">$ ./pros-cons --per-license</div>
+        <h2>Pros &amp; cons, license by license</h2>
+        <p>The honest trade-offs for each option. Filter by family to compare like-for-like.</p>
+      </div>
+      <div class="pc-filter" id="pcFilter">
+        <button class="fbtn active" data-f="all">all (13)</button>
+        <button class="fbtn" data-f="permissive">permissive</button>
+        <button class="fbtn" data-f="copyleft">copyleft</button>
+        <button class="fbtn" data-f="public">public domain</button>
+      </div>
+      <div class="pc-grid" id="pcGrid"></div>
+    </section>
+
+    <!-- 05 DECISION GUIDE -->
+    <section class="tab" data-tab="decide">
+      <div class="tab-head">
+        <div class="eyebrow">$ ./decide --interactive</div>
+        <h2>Decision guide</h2>
+        <p>Walk top to bottom. The first question that matches your priority usually points to one or two licenses.</p>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-q"><div class="qn">Q1</div><div class="qt">Do you care what others do with derivatives?</div></div>
+          <div class="flow-a">
+            <div class="flow-branch"><span class="cond">No, max adoption</span><span class="res">→ permissive: <b>MIT</b> / <b>Apache-2.0</b></span></div>
+            <div class="flow-branch"><span class="cond">Yes, keep it open</span><span class="res">→ copyleft (go to Q3)</span></div>
+            <div class="flow-branch"><span class="cond">Don't care at all</span><span class="res">→ public domain: <b>Unlicense</b> / <b>CC0</b></span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-q"><div class="qn">Q2</div><div class="qt">(Permissive) Do you need explicit patent protection?</div></div>
+          <div class="flow-a">
+            <div class="flow-branch"><span class="cond">Yes</span><span class="res">→ <b>Apache-2.0</b> (patent grant + retaliation clause)</span></div>
+            <div class="flow-branch"><span class="cond">No, keep it minimal</span><span class="res">→ <b>MIT</b> or <b>BSD-3-Clause</b></span></div>
+            <div class="flow-branch"><span class="cond">C++ / no notice in binaries</span><span class="res">→ <b>Boost (BSL-1.0)</b></span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-q"><div class="qn">Q3</div><div class="qt">(Copyleft) How wide should the obligation reach?</div></div>
+          <div class="flow-a">
+            <div class="flow-branch"><span class="cond">Just my files</span><span class="res">→ <b>MPL-2.0</b> (or <b>EPL-2.0</b> for Java/Eclipse)</span></div>
+            <div class="flow-branch"><span class="cond">Just my library</span><span class="res">→ <b>LGPL-3.0</b> (proprietary apps can link)</span></div>
+            <div class="flow-branch"><span class="cond">The whole app</span><span class="res">→ <b>GPL-3.0</b> (or <b>GPL-2.0</b> for kernel-style)</span></div>
+            <div class="flow-branch"><span class="cond">Even network/SaaS use</span><span class="res">→ <b>AGPL-3.0</b></span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-q"><div class="qn">Q4</div><div class="qt">Matching an existing ecosystem?</div></div>
+          <div class="flow-a">
+            <div class="flow-branch"><span class="cond">Rust / Node / Go</span><span class="res">→ <b>MIT</b> or <b>Apache-2.0</b> (dual is common)</span></div>
+            <div class="flow-branch"><span class="cond">Linux kernel / coreutils</span><span class="res">→ <b>GPL-2.0</b></span></div>
+            <div class="flow-branch"><span class="cond">Java / Eclipse</span><span class="res">→ <b>EPL-2.0</b></span></div>
+            <div class="flow-branch"><span class="cond">Selling open-core SaaS</span><span class="res">→ <b>AGPL-3.0</b> + CLA</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="callout">
+        <b>Reality check:</b> Many companies (famously Google) forbid using AGPL — and sometimes GPL — code internally.
+        If your goal is for big companies to adopt your library, a permissive license removes that barrier entirely.
+        Conversely, copyleft is leverage if you sell commercial exceptions (the "open-core" model).
+      </div>
+      <div class="disclaimer">⚠ Educational summary, not legal advice. Verify against choosealicense.com and SPDX,
+      and talk to a lawyer for anything that matters commercially.</div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // ---------- data ----------
+  const licenses = [
+    { id:'mit', name:'MIT License', spdx:'MIT', family:'permissive', scope:'None',
+      patent:'no', attr:'yes', source:'no', gpl:'yes',
+      best:'Libraries & broad adoption with minimal text.',
+      pros:['Shortest, most widely understood license','Allows commercial & proprietary use','Trivial compliance — keep one notice','Universally compatible, including with GPL'],
+      cons:['No explicit patent grant','No trademark or attribution-of-changes protection','Offers you little leverage over forks'] },
+    { id:'apache', name:'Apache License 2.0', spdx:'Apache-2.0', family:'permissive', scope:'None',
+      patent:'yes', attr:'yes', source:'no', gpl:'mid',
+      best:'Permissive projects that need patent safety (corporate-friendly).',
+      pros:['Explicit patent grant from contributors','Patent-retaliation clause deters trolls','Requires noting modifications (NOTICE file)','Trusted default for corporate open source'],
+      cons:['Longer & more complex than MIT','NOT compatible with GPL-2.0','Slightly heavier compliance (NOTICE handling)'] },
+    { id:'bsd3', name:'BSD 3-Clause', spdx:'BSD-3-Clause', family:'permissive', scope:'None',
+      patent:'no', attr:'yes', source:'no', gpl:'yes',
+      best:'MIT-like permissive with an explicit no-endorsement clause.',
+      pros:['Permissive and very widely accepted','Adds a non-endorsement / no-name-use clause','GPL-compatible','Simple compliance'],
+      cons:['No explicit patent grant','Marginally more restrictive than MIT for little gain','Two BSD variants causes minor confusion'] },
+    { id:'bsd2', name:'BSD 2-Clause', spdx:'BSD-2-Clause', family:'permissive', scope:'None',
+      patent:'no', attr:'yes', source:'no', gpl:'yes',
+      best:'A near-twin of MIT for those who prefer BSD wording.',
+      pros:['Extremely permissive and concise','Functionally equivalent to MIT','GPL-compatible'],
+      cons:['No patent grant','No non-endorsement clause (unlike BSD-3)','Nothing it does that MIT does not'] },
+    { id:'boost', name:'Boost Software License 1.0', spdx:'BSL-1.0', family:'permissive', scope:'None',
+      patent:'no', attr:'mid', source:'no', gpl:'yes',
+      best:'C++ / header-only libraries where binary attribution is a burden.',
+      pros:['No attribution required in compiled/binary distributions','Very permissive, GPL-compatible','Popular & trusted in the C++ world'],
+      cons:['No explicit patent grant','Less recognized outside C++','Fewer tooling defaults than MIT/Apache'] },
+    { id:'mpl', name:'Mozilla Public License 2.0', spdx:'MPL-2.0', family:'copyleft', scope:'File-level',
+      patent:'yes', attr:'yes', source:'mid', gpl:'yes',
+      best:'A middle ground: improvements to your files come back, proprietary code can coexist.',
+      pros:['File-level copyleft — mix with proprietary code freely','Includes a patent grant','GPL-compatible','Great balance of openness and adoption'],
+      cons:['More complex than permissive licenses','Per-file obligation can confuse contributors','Weaker protection than full GPL'] },
+    { id:'epl', name:'Eclipse Public License 2.0', spdx:'EPL-2.0', family:'copyleft', scope:'File/module',
+      patent:'yes', attr:'yes', source:'mid', gpl:'mid',
+      best:'Java / Eclipse ecosystem projects wanting business-friendly copyleft.',
+      pros:['Business-friendly weak copyleft','Patent grant included','Standard in the Java/Eclipse world'],
+      cons:['GPL-compatible only via an optional secondary-license clause','Less familiar outside JVM ecosystems','Commercial-distributor indemnity terms add nuance'] },
+    { id:'lgpl', name:'GNU LGPL v3.0', spdx:'LGPL-3.0', family:'copyleft', scope:'Library',
+      patent:'yes', attr:'yes', source:'mid', gpl:'yes',
+      best:'Shared libraries you want usable by proprietary apps via linking.',
+      pros:['Proprietary apps can link the library','Modifications to the library stay open','Patent grant; users can relink their own build'],
+      cons:['Static-linking rules are genuinely tricky','Relinking requirement complicates distribution','Heavier compliance than permissive options'] },
+    { id:'gpl3', name:'GNU GPL v3.0', spdx:'GPL-3.0', family:'copyleft', scope:'Whole-work',
+      patent:'yes', attr:'yes', source:'yes', gpl:'yes',
+      best:'Apps where every derivative must stay free software.',
+      pros:['Strong copyleft keeps all derivatives open','Explicit patent grant','Anti-tivoization & anti-DRM protections','Closes GPLv2 loopholes'],
+      cons:['"Viral" reach scares off many commercial users','Some companies ban GPL internally','Incompatible with GPL-2.0-only code','Complex compliance'] },
+    { id:'gpl2', name:'GNU GPL v2.0', spdx:'GPL-2.0', family:'copyleft', scope:'Whole-work',
+      patent:'no', attr:'yes', source:'yes', gpl:'mid',
+      best:'Projects matching the Linux kernel / legacy GNU ecosystem.',
+      pros:['Strong copyleft, battle-tested for decades','Ubiquitous — the Linux kernel license','Shorter than GPLv3'],
+      cons:['No explicit patent grant','No anti-tivoization protection','GPL-2.0-only is incompatible with GPL-3.0','Has the "SaaS loophole"'] },
+    { id:'agpl', name:'GNU AGPL v3.0', spdx:'AGPL-3.0', family:'copyleft', scope:'Network',
+      patent:'yes', attr:'yes', source:'yes', gpl:'yes',
+      best:'Network/SaaS software where you want hosted users to get the source.',
+      pros:['Closes the SaaS loophole — network use triggers source disclosure','Maximum protection against proprietary forks','Strong leverage for open-core commercial licensing'],
+      cons:['Many companies outright forbid AGPL code','Strongly deters commercial adoption','Network-disclosure obligation is operationally heavy'] },
+    { id:'unlicense', name:'The Unlicense', spdx:'Unlicense', family:'public', scope:'None',
+      patent:'no', attr:'no', source:'no', gpl:'yes',
+      best:'Throwaway / demo code you want truly free of any conditions.',
+      pros:['Dedicates work to the public domain — no attribution needed','Maximum freedom for users','Extremely short'],
+      cons:['Public-domain dedication is legally shaky in some countries','No patent or warranty handling','Some orgs distrust its enforceability'] },
+    { id:'cc0', name:'Creative Commons Zero v1.0', spdx:'CC0-1.0', family:'public', scope:'None',
+      patent:'no', attr:'no', source:'no', gpl:'yes',
+      best:'Data, content, and code you want with no rights reserved.',
+      pros:['Robust, lawyer-drafted public-domain dedication','Works internationally with a license fallback','No attribution required'],
+      cons:['Explicitly does NOT grant patent or trademark rights','Not recommended for software by some (e.g., FSF prefers it not for code)','No warranty/liability framing'] },
+  ];
+
+  const famPill = f => f==='permissive' ? '<span class="pill permissive">permissive</span>'
+                     : f==='copyleft'   ? '<span class="pill copyleft">copyleft</span>'
+                     : '<span class="pill public">public domain</span>';
+  const mark = v => v==='yes' ? '<span class="yes">●</span> yes'
+                  : v==='no'  ? '<span class="no">●</span> no'
+                  : '<span class="mid">●</span> partial';
+  const markGpl = v => v==='yes' ? '<span class="yes">●</span> yes'
+                     : v==='no'  ? '<span class="no">●</span> no'
+                     : '<span class="mid">●</span> conditional';
+
+  // matrix
+  const scopeLabel = { 'None':'<span class="no">●</span> none', 'File-level':'<span class="mid">●</span> file',
+    'File/module':'<span class="mid">●</span> file/module', 'Library':'<span class="mid">●</span> library',
+    'Whole-work':'<span class="yes">●</span> whole work', 'Network':'<span class="yes">●</span> network' };
+  document.getElementById('matrixBody').innerHTML = licenses.map(l => `
+    <tr>
+      <td class="name">${l.name}<span class="spdx">${l.spdx}</span></td>
+      <td>${famPill(l.family)}</td>
+      <td>${scopeLabel[l.scope]||l.scope}</td>
+      <td>${mark(l.patent)}</td>
+      <td>${mark(l.attr)}</td>
+      <td>${l.source==='yes'?'<span class="yes">●</span> required':l.source==='mid'?'<span class="mid">●</span> changed files':'<span class="no">●</span> no'}</td>
+      <td>${markGpl(l.gpl)}</td>
+    </tr>`).join('');
+
+  // pros/cons cards
+  function renderPC(filter='all') {
+    document.getElementById('pcGrid').innerHTML = licenses
+      .filter(l => filter==='all' || l.family===filter)
+      .map(l => `
+      <div class="pc-card">
+        <div class="pc-head">
+          <div class="info">
+            <h3>${l.name}</h3>
+            <div class="sub">${l.spdx} · ${l.scope==='None'?'no copyleft':l.scope+' copyleft'}</div>
+          </div>
+          ${famPill(l.family)}
+        </div>
+        <div class="pc-body">
+          <div class="pc-col pros"><h4>Pros</h4><ul>${l.pros.map(p=>`<li>${p}</li>`).join('')}</ul></div>
+          <div class="pc-col cons"><h4>Cons</h4><ul>${l.cons.map(c=>`<li>${c}</li>`).join('')}</ul></div>
+        </div>
+        <div class="best"><b>Best for:</b> ${l.best}</div>
+      </div>`).join('');
+  }
+  renderPC();
+
+  document.getElementById('pcFilter').addEventListener('click', e => {
+    const b = e.target.closest('.fbtn'); if(!b) return;
+    document.querySelectorAll('#pcFilter .fbtn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    renderPC(b.dataset.f);
+  });
+
+  // tab nav
+  document.getElementById('nav').addEventListener('click', e => {
+    const b = e.target.closest('.nav-btn'); if(!b) return;
+    const t = b.dataset.tab;
+    document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active', x===b));
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===t));
+    document.querySelector('.sidebar').classList.remove('open');
+    window.scrollTo({top:0});
+  });
+
+  // theme toggle
+  const tt = document.getElementById('themeToggle');
+  function syncTheme() {
+    const dark = document.documentElement.getAttribute('data-theme')==='dark';
+    document.getElementById('themeIcon').textContent = dark ? '☀' : '☾';
+    document.getElementById('themeLabel').textContent = dark ? 'light mode' : 'dark mode';
+  }
+  syncTheme();
+  tt.addEventListener('click', () => {
+    const dark = document.documentElement.getAttribute('data-theme')==='dark';
+    const next = dark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch(e){}
+    syncTheme();
+  });
+</script>
+</body>
+</html>
