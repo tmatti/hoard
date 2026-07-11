@@ -1,0 +1,3 @@
+# Wrangler cache — contains the Cloudflare account id, which this public
+# repo deliberately keeps out of history (it is the R2_ACCOUNT_ID secret).
+.wrangler/
