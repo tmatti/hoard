@@ -12,8 +12,10 @@ list, with each artifact viewable as its own page.
 
 ## The bucket contract
 
-Base URL: `https://<BUCKET_PUBLIC_DOMAIN>/hoard/` (I will supply the real
-domain; keep it in a single config value, not scattered through the code).
+Base URL: `https://<BUCKET_PUBLIC_DOMAIN>/hoard/`. The bucket is served on a
+subdomain of this site's own domain (e.g. `hoard.<apex>`); I will supply the
+exact hostname. Keep it in a single config value, not scattered through the
+code.
 
 1. **`hoard/manifest.json`** — the list of projects. Served with
    `Cache-Control: no-cache`. Shape:
@@ -47,23 +49,21 @@ domain; keep it in a single config value, not scattered through the code).
    and renders one entry per project: title, created date (and updated date
    when it differs), linking to the artifact page. Handle fetch failure
    gracefully (show a quiet error state, don't break the page).
-2. A way to **view each artifact**. Prefer linking directly to
-   `hoard/<slug>/index.html` on the bucket domain (the pages are standalone
-   documents with their own styling and light/dark handling). Only embed or
-   proxy them if direct links clash with how this site is architected — ask
-   me before choosing an iframe/proxy approach.
-3. Fetching may happen client-side or at build/request time, whichever fits
-   this site's stack — but if it's at build time, note in your summary that
-   new hoard pushes won't appear until the next site build, and tell me what
-   rebuild hook I'd need.
+2. A way to **view each artifact**: plain `<a href>` links directly to
+   `hoard/<slug>/index.html` on the bucket subdomain (the pages are
+   standalone documents with their own styling and light/dark handling).
+   This is decided — do not iframe, proxy, or copy the pages into this site.
+3. Fetch the manifest **client-side at view time** (decided): new hoard
+   pushes must appear in the list without a site rebuild or deployment.
 
 ## Constraints
 
 - The manifest is the single source of truth; never enumerate the bucket and
   never hardcode the project list.
-- If fetching client-side from a different origin than the bucket domain,
-  CORS must allow this site's origin — that's configured on the R2 bucket
-  (Cloudflare dashboard), not in this repo. Tell me the exact origin string
-  you need allowed.
+- The manifest fetch is cross-origin — a subdomain is a different origin
+  even under the same apex domain — so the R2 bucket needs a CORS policy
+  allowing this site's origin (configured in the Cloudflare dashboard, not
+  in this repo). Tell me the exact origin string you need allowed. The
+  `<a href>` links need no CORS; only the fetch does.
 - Don't store any Cloudflare credentials in this repo; everything published
   is world-readable over plain HTTPS.
