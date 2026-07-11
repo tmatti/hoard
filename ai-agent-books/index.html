@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Books for Building AI Agents — A Survey (mid-2026)</title>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      if (t) document.documentElement.setAttribute('data-theme', t);
+      else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)
+        document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(0.22 0.012 90);
+    --bg-panel:  oklch(0.255 0.014 95);
+    --bg-inset:  oklch(0.30 0.016 95);
+    --bg-card:   oklch(0.27 0.015 95);
+    --border:    oklch(0.38 0.02 95);
+    --border-soft: oklch(0.33 0.016 95);
+    --text:      oklch(0.90 0.014 90);
+    --text-dim:  oklch(0.72 0.016 90);
+    --text-faint:oklch(0.57 0.016 90);
+    --accent:    oklch(0.70 0.13 145);
+    --accent-dim:oklch(0.52 0.10 145);
+    --warm:      oklch(0.68 0.10 65);
+    --warm-dim:  oklch(0.52 0.07 60);
+    --gold:      oklch(0.78 0.12 85);
+    --danger:    oklch(0.66 0.14 40);
+    --shadow:    oklch(0.12 0.01 90 / 0.5);
+  }
+  :root[data-theme="light"] {
+    --bg:        oklch(0.955 0.012 90);
+    --bg-panel:  oklch(0.985 0.008 90);
+    --bg-inset:  oklch(0.92 0.014 90);
+    --bg-card:   oklch(0.975 0.010 90);
+    --border:    oklch(0.83 0.02 90);
+    --border-soft: oklch(0.88 0.014 90);
+    --text:      oklch(0.27 0.02 90);
+    --text-dim:  oklch(0.44 0.02 90);
+    --text-faint:oklch(0.56 0.02 90);
+    --accent:    oklch(0.48 0.13 145);
+    --accent-dim:oklch(0.58 0.10 145);
+    --warm:      oklch(0.50 0.10 60);
+    --warm-dim:  oklch(0.60 0.08 60);
+    --gold:      oklch(0.60 0.12 80);
+    --danger:    oklch(0.55 0.16 35);
+    --shadow:    oklch(0.70 0.01 90 / 0.35);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  aside {
+    width: 268px; flex-shrink: 0;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-soft);
+    padding: 26px 18px;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .brand { margin-bottom: 4px; }
+  .brand h1 { font-size: 16px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.2px; }
+  .brand .sub { font-size: 12px; color: var(--text-faint); line-height: 1.5; }
+  .brand .path { color: var(--warm-dim); }
+  nav { display: flex; flex-direction: column; gap: 2px; margin-top: 24px; }
+  .navbtn {
+    all: unset; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 11px; border-radius: 6px;
+    font-size: 13.5px; color: var(--text-dim);
+    transition: background .12s, color .12s;
+  }
+  .navbtn:hover { background: var(--bg-inset); color: var(--text); }
+  .navbtn .tilde { color: var(--warm-dim); font-size: 12px; }
+  .navbtn.active { background: var(--bg-inset); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+  .navbtn.active .tilde { color: var(--accent); }
+  .navbtn .count { margin-left: auto; font-size: 11px; color: var(--text-faint); }
+  .side-foot { margin-top: auto; padding-top: 22px; font-size: 11px; color: var(--text-faint); line-height: 1.6; }
+  .themebtn {
+    all: unset; cursor: pointer; margin-top: 14px;
+    font-size: 12px; color: var(--text-faint);
+    padding: 6px 0;
+  }
+  .themebtn:hover { color: var(--accent); }
+
+  /* ---- Main ---- */
+  main { flex: 1; min-width: 0; padding: 40px 46px 90px; max-width: 1080px; }
+  .tab { display: none; animation: fade .22s ease; }
+  .tab.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px);} to { opacity:1; transform:none; } }
+
+  h2.section { font-size: 21px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.3px; }
+  h2.section .prompt { color: var(--accent); margin-right: 9px; font-weight: 500; }
+  .lede { color: var(--text-dim); font-size: 14px; max-width: 74ch; margin: 0 0 26px; }
+  h3.grp { font-size: 13px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--warm); margin: 34px 0 14px; font-weight: 600; }
+  h3.grp:first-of-type { margin-top: 8px; }
+
+  /* ---- Stat cards ---- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 12px; margin: 4px 0 30px; }
+  .stat { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 9px; padding: 15px 16px; }
+  .stat .n { font-size: 25px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .stat .l { font-size: 11.5px; color: var(--text-faint); margin-top: 5px; line-height: 1.4; }
+
+  .callout { background: var(--bg-card); border: 1px solid var(--border-soft); border-left: 3px solid var(--warm); border-radius: 8px; padding: 15px 18px; margin: 22px 0; font-size: 13.5px; color: var(--text-dim); }
+  .callout b { color: var(--text); }
+  .callout.accent { border-left-color: var(--accent); }
+  .callout.danger { border-left-color: var(--danger); }
+
+  /* ---- Book cards ---- */
+  .book { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; }
+  .book:hover { border-color: var(--border); }
+  .book-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .book-title { font-size: 15.5px; font-weight: 700; margin: 0 0 3px; letter-spacing: -0.2px; }
+  .book-meta { font-size: 12.5px; color: var(--text-faint); }
+  .book-meta .author { color: var(--warm); }
+  .book-body { margin-top: 11px; font-size: 13.5px; color: var(--text-dim); }
+  .book-body .who { color: var(--text); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--bg-inset); color: var(--text-dim); border: 1px solid var(--border-soft); }
+
+  /* rating badge block */
+  .rate { text-align: right; flex-shrink: 0; min-width: 118px; }
+  .rate .num { font-size: 20px; font-weight: 700; color: var(--gold); }
+  .rate .num.na { color: var(--text-faint); font-size: 14px; font-weight: 500; }
+  .rate .out { font-size: 11px; color: var(--text-faint); }
+  .bar { height: 5px; background: var(--bg-inset); border-radius: 3px; margin: 5px 0 4px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--gold); border-radius: 3px; }
+  .rate .samp { font-size: 10.5px; color: var(--text-faint); }
+  .rate .samp.thin { color: var(--danger); }
+
+  /* currency chip */
+  .cur { display: inline-block; font-size: 10.5px; padding: 2px 8px; border-radius: 5px; font-weight: 600; margin-top: 6px; }
+  .cur.hot   { background: oklch(0.70 0.13 145 / .16); color: var(--accent); }
+  .cur.cur   { background: oklch(0.68 0.10 65 / .16);  color: var(--warm); }
+  .cur.age   { background: oklch(0.66 0.14 40 / .15);  color: var(--danger); }
+  .cur.thy   { background: oklch(0.72 0.016 90 / .14); color: var(--text-dim); }
+  .cur.soon  { background: oklch(0.78 0.12 85 / .16);  color: var(--gold); }
+
+  /* ---- Comparison table ---- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border-soft); border-radius: 9px; margin-top: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; min-width: 760px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; }
+  thead th { background: var(--bg-inset); color: var(--text-dim); font-weight: 600; cursor: pointer; user-select: none; position: sticky; top: 0; }
+  thead th:hover { color: var(--accent); }
+  thead th .arrow { color: var(--accent); font-size: 10px; }
+  tbody tr:hover { background: var(--bg-inset); }
+  td.title { white-space: normal; min-width: 210px; color: var(--text); font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill { font-size: 10.5px; padding: 1px 7px; border-radius: 4px; background: var(--bg-inset); border: 1px solid var(--border-soft); color: var(--text-dim); }
+
+  /* ---- Reading paths ---- */
+  .path { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 10px; padding: 20px 22px; margin-bottom: 18px; }
+  .path h4 { margin: 0 0 4px; font-size: 15px; }
+  .path .goal { font-size: 12.5px; color: var(--text-faint); margin-bottom: 16px; }
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step { display: flex; gap: 14px; align-items: flex-start; padding-bottom: 16px; position: relative; }
+  .step:not(:last-child)::before { content:""; position:absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--border); }
+  .step .dot { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-inset); border: 1px solid var(--accent-dim); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; z-index: 1; }
+  .step .stxt { padding-top: 3px; }
+  .step .stxt .bk { font-weight: 600; color: var(--text); }
+  .step .stxt .why { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
+
+  /* ---- Gaps ---- */
+  .gap { display: grid; grid-template-columns: 1fr; gap: 0; }
+  .gaprow { display: grid; grid-template-columns: 210px 1fr; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--border-soft); }
+  .gaprow .gtopic { font-weight: 600; color: var(--warm); font-size: 13px; }
+  .gaprow .gres { font-size: 13px; color: var(--text-dim); }
+  .gaprow .gres a { word-break: break-word; }
+
+  ul.clean { padding-left: 18px; margin: 10px 0; }
+  ul.clean li { margin-bottom: 7px; color: var(--text-dim); font-size: 13.5px; }
+  ul.clean li b { color: var(--text); }
+  .src-list { font-size: 12.5px; color: var(--text-dim); }
+  .src-list li { margin-bottom: 5px; }
+
+  @media (max-width: 900px) {
+    .layout { flex-direction: column; }
+    aside { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border-soft); padding: 18px; }
+    nav { flex-direction: row; flex-wrap: wrap; gap: 4px; margin-top: 16px; }
+    .navbtn { padding: 6px 10px; }
+    .navbtn .count { display: none; }
+    .side-foot { display: none; }
+    main { padding: 26px 20px 70px; }
+    .gaprow { grid-template-columns: 1fr; gap: 3px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">
+      <h1>Building AI Agents</h1>
+      <div class="sub"><span class="path">~/books</span> — a verified survey of book-length treatments for engineers, mid-2026</div>
+    </div>
+    <nav id="nav">
+      <button class="navbtn active" data-tab="overview"><span class="tilde">~/</span>overview</button>
+      <button class="navbtn" data-tab="handson"><span class="tilde">~/</span>hands-on engineering <span class="count">13</span></button>
+      <button class="navbtn" data-tab="multiagent"><span class="tilde">~/</span>multi-agent & orchestration <span class="count">6</span></button>
+      <button class="navbtn" data-tab="theory"><span class="tilde">~/</span>theory & background <span class="count">4</span></button>
+      <button class="navbtn" data-tab="compare"><span class="tilde">~/</span>compare all</button>
+      <button class="navbtn" data-tab="paths"><span class="tilde">~/</span>reading paths</button>
+      <button class="navbtn" data-tab="gaps"><span class="tilde">~/</span>gaps & non-books</button>
+      <button class="navbtn" data-tab="method"><span class="tilde">~/</span>method & sources</button>
+    </nav>
+    <div class="side-foot">
+      Compiled 2026-07-10. Every title cross-checked against a publisher page + a
+      retailer/Goodreads page. Ratings are live snapshots and drift daily.
+      <button class="themebtn" id="themeToggle">$ toggle theme</button>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ===================== OVERVIEW ===================== -->
+    <section class="tab active" id="tab-overview">
+      <h2 class="section"><span class="prompt">$</span>overview</h2>
+      <p class="lede">
+        A field-guide to the books worth an engineer's time when building LLM-based agentic
+        systems in mid-2026 — agent loops, tool use, RAG/memory, evaluation, and multi-agent
+        orchestration. 24 real, verified books, weighed heavily for recency, plus an honest
+        account of where <em>no</em> good book exists yet.
+      </p>
+
+      <div class="stats">
+        <div class="stat"><div class="n">24</div><div class="l">books verified (publisher + retailer)</div></div>
+        <div class="stat"><div class="n">4.60</div><div class="l">top Goodreads rating (Raschka, 354 votes)</div></div>
+        <div class="stat"><div class="n">~18mo</div><div class="l">age of every practical agent title</div></div>
+        <div class="stat"><div class="n">0</div><div class="l">settled "canon" agent books yet</div></div>
+      </div>
+
+      <div class="callout accent">
+        <b>The one-line answer.</b> Start with <b>Chip Huyen — AI Engineering</b> (the single
+        most-cited, most-read, best-rated practical title), pair it with <b>Sebastian Raschka —
+        Build a Large Language Model (From Scratch)</b> for internals, then reach for a dedicated
+        agent/orchestration book (<b>Albada</b> or <b>Gulli's Agentic Design Patterns</b>) for
+        multi-agent structure. For the fast-moving frontier — MCP, evals, context engineering,
+        production multi-agent — the honest best resource is still an essay or docs, not a book.
+      </div>
+
+      <h3 class="grp">Top picks at a glance</h3>
+      <ul class="clean">
+        <li><b>Best all-round starting point</b> — <em>AI Engineering</em> (Huyen, O'Reilly 2025). Production-grade, low-hype, covers evals for non-deterministic multi-step systems. GR 4.38 / 1,226.</li>
+        <li><b>Best for understanding what's under the hood</b> — <em>Build a Large Language Model (From Scratch)</em> (Raschka, Manning 2024). Highest-rated of the whole set. GR 4.60 / 354. Not agent-specific — buy it to debug agent behaviour.</li>
+        <li><b>Best mental model, most visual</b> — <em>Hands-On Large Language Models</em> (Alammar & Grootendorst, O'Reilly 2024). GR 4.29 / 282.</li>
+        <li><b>Best dedicated multi-agent / orchestration book</b> — <em>Building Applications with AI Agents</em> (Albada, O'Reilly 2025) for framework-comparative coverage; <em>Agentic Design Patterns</em> (Gulli, Springer 2025) for the pattern catalogue.</li>
+        <li><b>Best conceptual theory primer</b> — <em>An Introduction to MultiAgent Systems</em> (Wooldridge, Wiley 2009). Timeless concepts, zero LLM content.</li>
+      </ul>
+
+      <div class="callout danger">
+        <b>Shelf-life warning.</b> "The shelf life of AI education has collapsed from years to
+        months." Every book with a <em>framework name in the title</em> should be assumed to
+        have a ~12-month useful life — LangGraph hit v1.0 (Oct 2025), AutoGen 1.0 GA (Feb 2026),
+        and MCP (Nov 2024) already forced second editions. Buy books for durable fundamentals
+        (the agent loop, evals, patterns, transformer internals); use essays and docs for the
+        moving edge.
+      </div>
+
+      <div class="callout">
+        <b>How to read the ratings.</b> Only three titles have both a high average <em>and</em> a
+        large sample (280–1,200+ votes): Huyen's <em>AI Engineering</em>, Raschka, and
+        <em>Hands-On LLMs</em>. Every book with <em>"agent" in the title</em> currently sits on a
+        thin 30–75-vote base — treat those averages as noisy and lean on author credibility and
+        sample chapters instead. Ratings flagged <span style="color:var(--danger)">in red</span>
+        throughout are thin-sample.
+      </div>
+    </section>
+
+    <!-- ===================== HANDS-ON ===================== -->
+    <section class="tab" id="tab-handson">
+      <h2 class="section"><span class="prompt">$</span>hands-on engineering</h2>
+      <p class="lede">
+        Books you actually build from: agent loops, tool/function calling, RAG & memory,
+        prompt/context engineering, evaluation, and production deployment. Split into
+        foundational LLM-application books, agent-specific titles, and framework-authored guides.
+      </p>
+
+      <h3 class="grp">Foundations — core LLM-application engineering</h3>
+
+      <!-- AI Engineering -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">AI Engineering: Building Applications with Foundation Models</div>
+            <div class="book-meta"><span class="author">Chip Huyen</span> · O'Reilly · Jan 2025 · 532 pp · ISBN 9781098166304</div>
+          </div>
+          <div class="rate">
+            <div class="num">4.38</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:87.6%"></span></div>
+            <div class="samp">1,226 ratings</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The single most-cited title in the space and the most-read book on O'Reilly since
+          release. A practical framework for building on foundation models: the new AI stack,
+          evaluation (incl. AI-as-judge for open-ended, multi-step systems), prompt engineering,
+          RAG, fine-tuning, inference optimization, and a dedicated agents chapter.
+          <span class="who"> For: intermediate engineers shipping LLM products.</span>
+          <div class="cur hot">Very current · durable fundamentals</div>
+        </div>
+        <div class="tags"><span class="tag">evaluation</span><span class="tag">RAG</span><span class="tag">fine-tuning</span><span class="tag">agents</span><span class="tag">production</span></div>
+      </div>
+
+      <!-- Raschka -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Build a Large Language Model (From Scratch)</div>
+            <div class="book-meta"><span class="author">Sebastian Raschka</span> · Manning · 2024 · ISBN 9781633437166</div>
+          </div>
+          <div class="rate">
+            <div class="num">4.60</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:92%"></span></div>
+            <div class="samp">354 ratings</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The highest-rated book in this survey. Builds a GPT-style model step by step in
+          PyTorch — tokenization, attention, pretraining, fine-tuning. <em>Not</em> about agents,
+          but repeatedly recommended as the one book to truly understand LLM behaviour, which is
+          what you need when an agent misbehaves. <span class="who"> For: engineers who want
+          under-the-hood understanding.</span>
+          <div class="cur hot">Very current · timeless internals</div>
+        </div>
+        <div class="tags"><span class="tag">transformers</span><span class="tag">from scratch</span><span class="tag">PyTorch</span><span class="tag">fundamentals</span></div>
+      </div>
+
+      <!-- Hands-On LLMs -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Hands-On Large Language Models: Language Understanding and Generation</div>
+            <div class="book-meta"><span class="author">Jay Alammar & Maarten Grootendorst</span> · O'Reilly · Oct 2024 · 425 pp · ISBN 9781098150969</div>
+          </div>
+          <div class="rate">
+            <div class="num">4.29</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:85.8%"></span></div>
+            <div class="samp">282 ratings</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Highly visual, diagram-driven tour of the LLM toolkit: tokenizers, embeddings, semantic
+          search, RAG, and fine-tuning. Praised by Andrew Ng for building intuition fast.
+          Lighter on agents and production. <span class="who"> For: beginner→intermediate
+          engineers wanting a strong mental model.</span>
+          <div class="cur cur">Current · some fast-dating sections</div>
+        </div>
+        <div class="tags"><span class="tag">embeddings</span><span class="tag">RAG</span><span class="tag">semantic search</span><span class="tag">visual</span></div>
+      </div>
+
+      <!-- Prompt Engineering for LLMs -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Prompt Engineering for LLMs</div>
+            <div class="book-meta"><span class="author">John Berryman & Albert Ziegler</span> (GitHub Copilot architects) · O'Reilly · Nov 2024 · 471 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.83</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:76.6%"></span></div>
+            <div class="samp thin">93 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Context assembly, few-shot, chain-of-thought, and RAG as prompt strategy for real
+          applications — effectively a "context engineering" precursor, directly relevant to how
+          you feed an agent. <span class="who"> For: intermediate engineers.</span>
+          <div class="cur cur">Current</div>
+        </div>
+        <div class="tags"><span class="tag">prompting</span><span class="tag">context engineering</span><span class="tag">CoT</span></div>
+      </div>
+
+      <!-- LLM Engineer's Handbook -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">LLM Engineer's Handbook</div>
+            <div class="book-meta"><span class="author">Paul Iusztin & Maxime Labonne</span> · Packt · Oct 2024 · ~522 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.88</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:77.6%"></span></div>
+            <div class="samp thin">69 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          End-to-end LLMOps: data pipelines, fine-tuning, RAG, deployment on AWS, monitoring.
+          Code-dense, MLOps-flavoured. <span class="who"> For: intermediate→advanced engineers
+          building full pipelines.</span>
+          <div class="cur cur">Current · framework code will drift</div>
+        </div>
+        <div class="tags"><span class="tag">LLMOps</span><span class="tag">deployment</span><span class="tag">RAG</span><span class="tag">monitoring</span></div>
+      </div>
+
+      <!-- Building LLMs for Production -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Building LLMs for Production</div>
+            <div class="book-meta"><span class="author">Louis-François Bouchard & Louie Peters</span> (Towards AI) · May 2024, rev. Oct 2024 · 463 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">4.09</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:81.8%"></span></div>
+            <div class="samp thin">93 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Practical prompting + RAG + fine-tuning for production reliability, using
+          LangChain/LlamaIndex. Reputable self-publish from the Towards AI team.
+          <span class="who"> For: intermediate engineers.</span>
+          <div class="cur cur">Current (revised Oct 2024)</div>
+        </div>
+        <div class="tags"><span class="tag">RAG</span><span class="tag">fine-tuning</span><span class="tag">reliability</span></div>
+      </div>
+
+      <!-- Building LLM Powered Applications -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Building LLM Powered Applications</div>
+            <div class="book-meta"><span class="author">Valentina Alto</span> · Packt · May 2024 · 342 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.62</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:72.4%"></span></div>
+            <div class="samp thin">34 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          LangChain-centric introduction to LLM apps with simple agents and memory. Useful as a
+          gentle on-ramp, but aging fastest of the batch — pre-LangGraph-1.0, framework code has
+          moved on. <span class="who"> For: beginners.</span>
+          <div class="cur age">Aging · framework code dated</div>
+        </div>
+        <div class="tags"><span class="tag">LangChain</span><span class="tag">intro</span><span class="tag">memory</span></div>
+      </div>
+
+      <h3 class="grp">Agent-specific engineering</h3>
+
+      <!-- Albada -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Building Applications with AI Agents: Designing and Implementing Multiagent Systems</div>
+            <div class="book-meta"><span class="author">Michael Albada</span> · O'Reilly · Oct 2025 · 352 pp · ISBN 9781098176501</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.40</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:68%"></span></div>
+            <div class="samp thin">57 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The closest direct match to "how do I build agent systems": agent core (tools, memory,
+          orchestration), the same scenarios implemented across LangGraph, AutoGen, CrewAI and the
+          OpenAI Agents SDK, plus coordination patterns, scalability, security and evaluation.
+          Reviewers note framework-specific code ages fast. <span class="who"> For: intermediate
+          engineers wanting a framework-comparative view.</span>
+          <div class="cur hot">Very current (Oct 2025)</div>
+        </div>
+        <div class="tags"><span class="tag">multi-agent</span><span class="tag">LangGraph</span><span class="tag">AutoGen</span><span class="tag">CrewAI</span><span class="tag">orchestration</span></div>
+      </div>
+
+      <!-- AI Agents in Action -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">AI Agents in Action</div>
+            <div class="book-meta"><span class="author">Micheal Lanham</span> · Manning · Mar 2025 · 344 pp (2nd ed. in MEAP adds MCP)</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.12</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:62.4%"></span></div>
+            <div class="samp thin">73 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Agent behaviour patterns, OpenAI Assistants API, AutoGen, CrewAI, memory, planning and
+          eval. Lowest-rated of the agent batch — 1st edition criticized as "tutorial notes" and
+          for omitting MCP; the 2nd edition (MEAP) adds MCP, containerized deploy and voice.
+          <span class="who"> For: hands-on beginners; prefer the 2nd edition.</span>
+          <div class="cur age">1st ed. dated (no MCP) · 2e in progress</div>
+        </div>
+        <div class="tags"><span class="tag">AutoGen</span><span class="tag">CrewAI</span><span class="tag">planning</span><span class="tag">memory</span></div>
+      </div>
+
+      <!-- Building Agentic AI Systems -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Building Agentic AI Systems</div>
+            <div class="book-meta"><span class="author">Anjanava Biswas & Wrick Talukdar</span> · Packt · Apr 2025 · 292 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">2.93</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:58.6%"></span></div>
+            <div class="samp thin">30 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Coordinator / worker / delegator patterns, multi-step planning, tool integration and
+          trust/safety. Won a 2025 Goody Business Book Award (Technology) but carries the lowest
+          Goodreads average here on a very small sample. <span class="who"> For: readers wanting
+          a patterns-first overview.</span>
+          <div class="cur cur">Current · reception lukewarm</div>
+        </div>
+        <div class="tags"><span class="tag">coordinator/worker</span><span class="tag">planning</span><span class="tag">safety</span></div>
+      </div>
+
+      <!-- KG book -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Building AI Agents with LLMs, RAG, and Knowledge Graphs</div>
+            <div class="book-meta"><span class="author">Salvatore Raieli & Gabriele Iuculano</span> · Packt · 2025 · ISBN 9781835087060</div>
+          </div>
+          <div class="rate">
+            <div class="num na">n/a</div><div class="out">too new</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Distinctive angle: grounding autonomous agents in knowledge graphs alongside RAG, to
+          cut hallucination and add structured memory. Page count unverified (~580).
+          <span class="who"> For: engineers building knowledge-intensive agents.</span>
+          <div class="cur hot">Very current · niche angle</div>
+        </div>
+        <div class="tags"><span class="tag">knowledge graphs</span><span class="tag">RAG</span><span class="tag">grounding</span></div>
+      </div>
+
+      <!-- Ozdemir -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Building Agentic AI: Workflows, Fine-Tuning, Optimization, and Deployment</div>
+            <div class="book-meta"><span class="author">Sinan Ozdemir</span> · Addison-Wesley (Pearson AI Signature Series) · Nov 2025 · ISBN 9780135489680</div>
+          </div>
+          <div class="rate">
+            <div class="num na">n/a</div><div class="out">too new</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Production blueprints from a well-known author: reasoning models, computer use,
+          multimodal, fine-tuning, plus testing, monitoring and cost optimization.
+          <span class="who"> For: intermediate→advanced engineers focused on production.</span>
+          <div class="cur hot">Very current (Nov 2025)</div>
+        </div>
+        <div class="tags"><span class="tag">production</span><span class="tag">fine-tuning</span><span class="tag">cost</span><span class="tag">computer use</span></div>
+      </div>
+
+      <h3 class="grp">Framework-authored guides</h3>
+
+      <!-- Learning LangChain -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Learning LangChain: Building AI and LLM Applications with LangChain and LangGraph</div>
+            <div class="book-meta"><span class="author">Mayo Oshin & Nuno Campos</span> (Campos = founding LangGraph/LangChain engineer) · O'Reilly · 2025 · 296 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.79</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:75.8%"></span></div>
+            <div class="samp thin">53 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The "author of the framework" pick: RAG plus LangGraph agent architecture, deployment
+          and eval, written by a core maintainer. Some reviewers feel it doesn't add much over
+          the official docs. <span class="who"> For: teams committing to LangGraph.</span>
+          <div class="cur cur">Current · tied to LangGraph version</div>
+        </div>
+        <div class="tags"><span class="tag">LangChain</span><span class="tag">LangGraph</span><span class="tag">RAG</span></div>
+      </div>
+
+      <!-- Generative AI with LangChain 2e -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Generative AI with LangChain (2nd Edition)</div>
+            <div class="book-meta"><span class="author">Ben Auffarth & Leonid Kuligin</span> · Packt · May 2025 · ~468 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.58</div><div class="out">GR (1st ed) / 5</div>
+            <div class="bar"><span style="width:71.6%"></span></div>
+            <div class="samp thin">31 ratings (1st ed)</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The 2nd edition leans hard into multi-agent, LangGraph workflows, advanced RAG and
+          testing/eval/deployment, with a prototype→production emphasis. 2nd-ed ratings are still
+          limited; the figure shown is the 1st edition's. <span class="who"> For: LangChain teams
+          moving to production.</span>
+          <div class="cur cur">Current (2e, May 2025)</div>
+        </div>
+        <div class="tags"><span class="tag">LangChain</span><span class="tag">multi-agent</span><span class="tag">advanced RAG</span></div>
+      </div>
+    </section>
+
+    <!-- ===================== MULTI-AGENT ===================== -->
+    <section class="tab" id="tab-multiagent">
+      <h2 class="section"><span class="prompt">$</span>multi-agent & orchestration</h2>
+      <p class="lede">
+        Books focused on architecture beyond a single agent: supervisor/orchestrator patterns,
+        agent teams, communication protocols (A2A, MCP), and multi-agent system design. All are
+        2025–2026 — there is no settled canon yet, so author credibility and sample chapters
+        matter more than thin rating averages.
+      </p>
+
+      <div class="callout">
+        <b>No book by the AutoGen or CrewAI core teams exists as of mid-2026.</b> The verified
+        "framework author" title is <em>Learning LangChain</em> (Campos, LangGraph) in the
+        hands-on tab. For multi-agent-in-production, the most-shared reference is still Anthropic's
+        essay <em>How we built our multi-agent research system</em> — see the Gaps tab.
+      </div>
+
+      <!-- Gulli -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Agentic Design Patterns: A Hands-On Guide to Building Intelligent Systems</div>
+            <div class="book-meta"><span class="author">Antonio Gulli</span> (Senior Director, Google CTO office) · Springer · Oct 2025 · 424 pp · 21 chapters</div>
+          </div>
+          <div class="rate">
+            <div class="num na">n/a</div><div class="out">very new</div>
+          </div>
+        </div>
+        <div class="book-body">
+          A pattern catalogue for agentic systems: prompt chaining, routing, parallelization,
+          reflection, tool use, planning, <b>multi-agent collaboration</b>, memory, MCP,
+          human-in-the-loop and RAG — illustrated across LangChain/LangGraph, CrewAI and Google
+          ADK. A free preprint circulates. The strongest single "patterns" reference.
+          <span class="who"> For: architects wanting a durable vocabulary of patterns.</span>
+          <div class="cur hot">Very current · patterns age slowly</div>
+        </div>
+        <div class="tags"><span class="tag">design patterns</span><span class="tag">multi-agent</span><span class="tag">MCP</span><span class="tag">reflection</span><span class="tag">planning</span></div>
+      </div>
+
+      <!-- Albada (cross-listed) -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Building Applications with AI Agents <span style="font-weight:400;font-size:12px;color:var(--text-faint)">(also in hands-on)</span></div>
+            <div class="book-meta"><span class="author">Michael Albada</span> · O'Reilly · Oct 2025 · 352 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.40</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:68%"></span></div>
+            <div class="samp thin">57 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The most directly on-topic <em>published</em> orchestration book: multi-agent
+          coordination patterns implemented comparatively across LangGraph, AutoGen, CrewAI and
+          the OpenAI Agents SDK, with scalability, security and eval. <span class="who"> For:
+          engineers choosing an orchestration approach.</span>
+          <div class="cur hot">Very current</div>
+        </div>
+        <div class="tags"><span class="tag">orchestration</span><span class="tag">coordination</span><span class="tag">framework-comparative</span></div>
+      </div>
+
+      <!-- Arsanjani -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Agentic Architectural Patterns for Building Multi-Agent Systems</div>
+            <div class="book-meta"><span class="author">Dr. Ali Arsanjani & Juan Pablo Bustos</span> (Google Cloud) · Packt · 2025 · ISBN 9781806029570</div>
+          </div>
+          <div class="rate">
+            <div class="num na">n/a</div><div class="out">new</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Enterprise angle: a GenAI maturity model, hierarchical orchestrator/sub-agent
+          architecture, the A2A (agent-to-agent) protocol, RAG, fine-tuning, LLMOps and fault
+          tolerance. <span class="who"> For: architects designing at organizational scale.</span>
+          <div class="cur hot">Very current · enterprise/A2A focus</div>
+        </div>
+        <div class="tags"><span class="tag">A2A protocol</span><span class="tag">hierarchical</span><span class="tag">LLMOps</span><span class="tag">enterprise</span></div>
+      </div>
+
+      <!-- Infante -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">AI Agents and Applications: With LangChain, LangGraph, and MCP</div>
+            <div class="book-meta"><span class="author">Roberto Infante</span> · Manning · Feb 2026 · 448 pp (MEAP available now)</div>
+          </div>
+          <div class="rate">
+            <div class="num na">n/a</div><div class="out">MEAP</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Prompt engineering, advanced RAG, agentic workflows with LangGraph, tool-based and
+          multi-agent systems, and MCP — one of the first books written with MCP baked in rather
+          than bolted on. <span class="who"> For: engineers on the LangGraph + MCP stack.</span>
+          <div class="cur hot">Very current · MCP-native</div>
+        </div>
+        <div class="tags"><span class="tag">LangGraph</span><span class="tag">MCP</span><span class="tag">multi-agent</span></div>
+      </div>
+
+      <!-- Fajardo -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Build a Multi-Agent System (from Scratch)</div>
+            <div class="book-meta"><span class="author">Val Andrei Fajardo</span> · Manning · MEAP / early access (in progress mid-2026)</div>
+          </div>
+          <div class="rate">
+            <div class="num na">n/a</div><div class="out">early access</div>
+          </div>
+        </div>
+        <div class="book-body">
+          A from-first-principles take on coordinating and delegating agent teams, with MCP and
+          A2A protocols — in the spirit of Raschka's "from scratch" approach but for multi-agent
+          systems. <span class="who"> For: engineers who want to build the machinery themselves.
+          </span> <b>Not yet a finished book</b> — early-access chapters only.
+          <div class="cur soon">Early access · incomplete</div>
+        </div>
+        <div class="tags"><span class="tag">from scratch</span><span class="tag">agent teams</span><span class="tag">A2A</span><span class="tag">MCP</span></div>
+      </div>
+
+      <!-- Koenigstein -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">AI Agents: The Definitive Guide — Design, Deployment, and Evaluation for Production</div>
+            <div class="book-meta"><span class="author">Nicole Koenigstein</span> · O'Reilly · ~Nov 2026 (forthcoming)</div>
+          </div>
+          <div class="rate">
+            <div class="num na">n/a</div><div class="out">forthcoming</div>
+          </div>
+        </div>
+        <div class="book-body">
+          Announced coverage: production agents, orchestration on Ray/Kubernetes, and multi-agent
+          architectures/patterns. Early-release chapters are online now; final publication is
+          <b>after today's date</b>, so treat as forthcoming. <span class="who"> For: production
+          platform engineers — watch, don't buy yet.</span>
+          <div class="cur soon">Forthcoming (~late 2026)</div>
+        </div>
+        <div class="tags"><span class="tag">production</span><span class="tag">Ray/K8s</span><span class="tag">orchestration</span></div>
+      </div>
+    </section>
+
+    <!-- ===================== THEORY ===================== -->
+    <section class="tab" id="tab-theory">
+      <h2 class="section"><span class="prompt">$</span>theory & background</h2>
+      <p class="lede">
+        Pre-LLM classics. The concepts — game theory, BDI agents, negotiation, mechanism design,
+        coordination — still underpin modern A2A protocols and agent-team reasoning. But these
+        books contain <b>zero</b> transformers, tool-calling or LLM content. Buy them for
+        vocabulary and mental models, not implementation.
+      </p>
+
+      <div class="callout danger">
+        <b>Read as theory, not guidance.</b> None of these will teach you to wire up an LLM agent.
+        Their value is conceptual grounding for <em>why</em> multi-agent coordination is hard —
+        useful once you're designing agent teams, not when you're writing your first agent loop.
+      </div>
+
+      <!-- Wooldridge -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">An Introduction to MultiAgent Systems (2nd Edition)</div>
+            <div class="book-meta"><span class="author">Michael Wooldridge</span> · Wiley · 2009 · ISBN 9780470519462</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.55</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:71%"></span></div>
+            <div class="samp">~71 ratings</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The standard, readable undergraduate primer: what an agent is, BDI architectures,
+          agent communication, cooperation, and game-theoretic foundations. The best single
+          conceptual on-ramp to multi-agent thinking. <span class="who"> For: anyone wanting the
+          vocabulary of the field.</span>
+          <div class="cur thy">Theory · timeless concepts, no LLMs</div>
+        </div>
+        <div class="tags"><span class="tag">BDI agents</span><span class="tag">communication</span><span class="tag">cooperation</span><span class="tag">primer</span></div>
+      </div>
+
+      <!-- Shoham & Leyton-Brown -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Multiagent Systems: Algorithmic, Game-Theoretic, and Logical Foundations</div>
+            <div class="book-meta"><span class="author">Yoav Shoham & Kevin Leyton-Brown</span> · Cambridge · 2008 · free PDF from authors</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.75</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:75%"></span></div>
+            <div class="samp thin">40 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The rigorous option: game theory, mechanism design, auctions, social choice, and logics
+          of knowledge. Heavy math. The theoretical backbone for reasoning about incentives and
+          negotiation between agents. <span class="who"> For: readers who want formal depth (free
+          PDF available).</span>
+          <div class="cur thy">Theory · rigorous, math-heavy</div>
+        </div>
+        <div class="tags"><span class="tag">game theory</span><span class="tag">mechanism design</span><span class="tag">auctions</span><span class="tag">formal</span></div>
+      </div>
+
+      <!-- Weiss -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Multiagent Systems (2nd Edition)</div>
+            <div class="book-meta">ed. <span class="author">Gerhard Weiss</span> · MIT Press · 2013 · 867 pp</div>
+          </div>
+          <div class="rate">
+            <div class="num">3.74</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:74.8%"></span></div>
+            <div class="samp thin">50 ratings · thin</div>
+          </div>
+        </div>
+        <div class="book-body">
+          A broad, edited survey of distributed AI: distributed problem solving, multi-agent
+          learning, communication and negotiation, from 31 contributors. Encyclopedic reference
+          rather than a build-along; framework content is dated. <span class="who"> For:
+          researchers wanting breadth.</span>
+          <div class="cur thy">Theory · encyclopedic reference</div>
+        </div>
+        <div class="tags"><span class="tag">distributed AI</span><span class="tag">MAS learning</span><span class="tag">negotiation</span></div>
+      </div>
+
+      <!-- Sutton & Barto -->
+      <div class="book">
+        <div class="book-head">
+          <div>
+            <div class="book-title">Reinforcement Learning: An Introduction (2nd Edition)</div>
+            <div class="book-meta"><span class="author">Richard S. Sutton & Andrew G. Barto</span> · MIT Press · 2018 · free PDF from authors</div>
+          </div>
+          <div class="rate">
+            <div class="num">4.54</div><div class="out">Goodreads / 5</div>
+            <div class="bar"><span style="width:90.8%"></span></div>
+            <div class="samp">839 ratings</div>
+          </div>
+        </div>
+        <div class="book-body">
+          The RL bible, and the only theory book here with a large, stable rating base — but it is
+          <em>adjacent</em>: relevant to agents for RL-based control and RLHF background, not
+          multi-agent LLM orchestration. Include only if you need the RL grounding.
+          <span class="who"> For: those going deep on RL/RLHF.</span>
+          <div class="cur thy">Background · RL, not LLM agents</div>
+        </div>
+        <div class="tags"><span class="tag">reinforcement learning</span><span class="tag">RLHF background</span><span class="tag">optional</span></div>
+      </div>
+    </section>
+
+    <!-- ===================== COMPARE ===================== -->
+    <section class="tab" id="tab-compare">
+      <h2 class="section"><span class="prompt">$</span>compare all</h2>
+      <p class="lede">
+        Every verified book, sortable. Click a column header to sort. Ratings are Goodreads
+        snapshots (2026-07-10); "—" means too new / no rating surface. Sample sizes under ~100
+        are noisy — weigh author and publisher more heavily there.
+      </p>
+      <div class="tablewrap">
+        <table id="cmp">
+          <thead>
+            <tr>
+              <th data-k="title" data-t="s">Title <span class="arrow"></span></th>
+              <th data-k="author" data-t="s">Author(s) <span class="arrow"></span></th>
+              <th data-k="pub" data-t="s">Publisher <span class="arrow"></span></th>
+              <th data-k="year" data-t="n" class="num">Year <span class="arrow"></span></th>
+              <th data-k="rating" data-t="n" class="num">GR <span class="arrow">▼</span></th>
+              <th data-k="votes" data-t="n" class="num">Votes <span class="arrow"></span></th>
+              <th data-k="cat" data-t="s">Category <span class="arrow"></span></th>
+              <th data-k="cur" data-t="s">Currency <span class="arrow"></span></th>
+            </tr>
+          </thead>
+          <tbody><!-- filled by JS --></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== PATHS ===================== -->
+    <section class="tab" id="tab-paths">
+      <h2 class="section"><span class="prompt">$</span>reading paths</h2>
+      <p class="lede">
+        There is no single order — pick by what you're optimizing for. All three paths assume you
+        supplement books with the essays/docs in the Gaps tab for anything MCP, evals, or
+        multi-agent-in-production.
+      </p>
+
+      <div class="path">
+        <h4>Path A — Hands-on engineering (ship an agent)</h4>
+        <div class="goal">Goal: build and deploy a working LLM agent as fast as is sound.</div>
+        <div class="steps">
+          <div class="step"><div class="dot">1</div><div class="stxt"><span class="bk">AI Engineering</span> — Huyen<div class="why">The backbone: evals, RAG, prompt eng, the agent loop, production concerns.</div></div></div>
+          <div class="step"><div class="dot">2</div><div class="stxt"><span class="bk">Hands-On Large Language Models</span> — Alammar & Grootendorst<div class="why">Fills in embeddings/RAG/retrieval intuition with strong diagrams.</div></div></div>
+          <div class="step"><div class="dot">3</div><div class="stxt"><span class="bk">Prompt Engineering for LLMs</span> — Berryman & Ziegler<div class="why">Context assembly — how to actually feed the agent.</div></div></div>
+          <div class="step"><div class="dot">4</div><div class="stxt"><span class="bk">Building Applications with AI Agents</span> — Albada<div class="why">Agent orchestration across LangGraph/AutoGen/CrewAI; pick your framework.</div></div></div>
+          <div class="step"><div class="dot">5</div><div class="stxt"><span class="bk">Anthropic essays + framework docs</span><div class="why">"Building Effective Agents", 12-factor agents, MCP spec — the moving frontier.</div></div></div>
+        </div>
+      </div>
+
+      <div class="path">
+        <h4>Path B — Architectural depth (design agent teams)</h4>
+        <div class="goal">Goal: design multi-agent systems and orchestration that scale.</div>
+        <div class="steps">
+          <div class="step"><div class="dot">1</div><div class="stxt"><span class="bk">AI Engineering</span> — Huyen<div class="why">Shared foundation — evals and reliability first.</div></div></div>
+          <div class="step"><div class="dot">2</div><div class="stxt"><span class="bk">Agentic Design Patterns</span> — Gulli<div class="why">A durable vocabulary: routing, reflection, planning, multi-agent collaboration.</div></div></div>
+          <div class="step"><div class="dot">3</div><div class="stxt"><span class="bk">Building Applications with AI Agents</span> — Albada<div class="why">Patterns made concrete across real frameworks.</div></div></div>
+          <div class="step"><div class="dot">4</div><div class="stxt"><span class="bk">Agentic Architectural Patterns</span> — Arsanjani & Bustos<div class="why">Enterprise scale: hierarchical orchestration, A2A, fault tolerance.</div></div></div>
+          <div class="step"><div class="dot">5</div><div class="stxt"><span class="bk">Anthropic: multi-agent research system</span><div class="why">The best production case study — no book covers this as well yet.</div></div></div>
+        </div>
+      </div>
+
+      <div class="path">
+        <h4>Path C — Theoretical grounding (know why it's hard)</h4>
+        <div class="goal">Goal: conceptual/formal foundations of multi-agent systems.</div>
+        <div class="steps">
+          <div class="step"><div class="dot">1</div><div class="stxt"><span class="bk">An Introduction to MultiAgent Systems</span> — Wooldridge<div class="why">The readable primer: agents, BDI, communication, cooperation.</div></div></div>
+          <div class="step"><div class="dot">2</div><div class="stxt"><span class="bk">Multiagent Systems: Foundations</span> — Shoham & Leyton-Brown<div class="why">Formal depth: game theory, mechanism design, negotiation.</div></div></div>
+          <div class="step"><div class="dot">3</div><div class="stxt"><span class="bk">Multiagent Systems</span> — ed. Weiss<div class="why">Encyclopedic breadth across distributed AI (reference, dip in).</div></div></div>
+          <div class="step"><div class="dot">4</div><div class="stxt"><span class="bk">Reinforcement Learning</span> — Sutton & Barto <span style="color:var(--text-faint);font-weight:400">(optional)</span><div class="why">Only if you need RL/RLHF grounding — it's adjacent, not core.</div></div></div>
+        </div>
+      </div>
+
+      <div class="callout accent">
+        <b>Under-the-hood detour (any path).</b> If you keep hitting "why did the model do that?",
+        drop into <b>Build a Large Language Model (From Scratch)</b> (Raschka). It's the
+        highest-rated book here and the fastest route to real intuition about model behaviour.
+      </div>
+    </section>
+
+    <!-- ===================== GAPS ===================== -->
+    <section class="tab" id="tab-gaps">
+      <h2 class="section"><span class="prompt">$</span>gaps & best non-book resources</h2>
+      <p class="lede">
+        The space is no longer a total book vacuum — but for its fastest-moving edges the go-to
+        reference is consistently <b>not a book</b>. Where an engineer's honest answer today is
+        "read the essay / spec / docs," here's what to read instead.
+      </p>
+
+      <div class="callout">
+        <b>The essay that outranks every book.</b> Anthropic's <b>"Building Effective Agents"</b>
+        (Dec 2024) dominates community discussion far more than any title — Hacker News threads of
+        763 and 543 points. If you read one thing before your first agent, read that.
+      </div>
+
+      <div class="gap">
+        <div class="gaprow"><div class="gtopic">Agent design patterns / when to use agents</div><div class="gres">Anthropic — <a href="https://www.anthropic.com/research/building-effective-agents">Building Effective Agents</a> (Dec 2024)</div></div>
+        <div class="gaprow"><div class="gtopic">Production reliability & discipline</div><div class="gres">HumanLayer — <a href="https://github.com/humanlayer/12-factor-agents">12-factor agents</a> (GitHub)</div></div>
+        <div class="gaprow"><div class="gtopic">MCP (Model Context Protocol) — no book yet</div><div class="gres">Official spec — <a href="https://modelcontextprotocol.io">modelcontextprotocol.io</a> (a dedicated book isn't expected until late 2026)</div></div>
+        <div class="gaprow"><div class="gtopic">Agent evals</div><div class="gres">Hamel Husain — <a href="https://hamel.dev/blog/posts/evals/">Your AI Product Needs Evals</a> + Anthropic "Demystifying evals for AI agents"</div></div>
+        <div class="gaprow"><div class="gtopic">Context engineering (term coined 2025)</div><div class="gres">Anthropic — <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Effective context engineering for AI agents</a> (Sep 2025)</div></div>
+        <div class="gaprow"><div class="gtopic">Multi-agent orchestration in production</div><div class="gres">Anthropic — <a href="https://www.anthropic.com/engineering/multi-agent-research-system">How we built our multi-agent research system</a> (Jun 2025) + LangGraph docs</div></div>
+        <div class="gaprow"><div class="gtopic">Guardrails / prompt injection</div><div class="gres">Simon Willison — <a href="https://simonwillison.net/series/prompt-injection/">lethal trifecta series</a> + OWASP LLM cheat sheet</div></div>
+        <div class="gaprow"><div class="gtopic">Observability / tracing</div><div class="gres">LangSmith / Langfuse / Braintrust docs</div></div>
+        <div class="gaprow"><div class="gtopic">Cost optimization / prompt caching</div><div class="gres">Provider docs (Anthropic / OpenAI prompt caching)</div></div>
+        <div class="gaprow"><div class="gtopic">Foundational reasoning + tool-use theory</div><div class="gres"><a href="https://arxiv.org/abs/2210.03629">ReAct</a> (Yao et al., 2022) + <a href="https://arxiv.org/abs/2302.04761">Toolformer</a> (Schick et al., 2023)</div></div>
+        <div class="gaprow"><div class="gtopic">Vendor playbooks</div><div class="gres">OpenAI "A Practical Guide to Building Agents" (PDF) + Google/Kaggle "Agents Companion" whitepaper</div></div>
+        <div class="gaprow"><div class="gtopic">Staying current</div><div class="gres">DeepLearning.AI <a href="https://www.deeplearning.ai/courses/agentic-ai/">Agentic AI</a> (Andrew Ng) + Latent Space, Simon Willison, Eugene Yan</div></div>
+      </div>
+
+      <div class="callout danger">
+        <b>Community counter-position, stated plainly.</b> A recurring Hacker News refrain when
+        engineers ask what to read: <em>"Just start building… keep it minimal, use the OpenAI
+        Agents SDK,"</em> and <em>"It's all a bunch of prompts — use the APIs directly and avoid
+        abstraction layers."</em> Books are best for durable fundamentals; the frontier is learned
+        by building against docs.
+      </div>
+    </section>
+
+    <!-- ===================== METHOD ===================== -->
+    <section class="tab" id="tab-method">
+      <h2 class="section"><span class="prompt">$</span>method & sources</h2>
+      <p class="lede">How this survey was built, and what to distrust in it.</p>
+
+      <h3 class="grp">Verification method</h3>
+      <ul class="clean">
+        <li>Every book was cross-checked against <b>both</b> a publisher page (O'Reilly, Manning, Packt, Springer, MIT Press, Wiley, Cambridge, Addison-Wesley) <b>and</b> a retailer/Goodreads page before inclusion.</li>
+        <li>Ratings are <b>Goodreads</b> snapshots taken 2026-07-10 — used as the one consistent cross-title metric. They drift daily. Amazon star counts render client-side and could not be reliably scraped, so they are omitted rather than guessed.</li>
+        <li>Nothing was invented. Where a rating or page count couldn't be verified it is marked "n/a" / "unverified," and forthcoming or early-access (MEAP) titles are flagged as such.</li>
+        <li>The anchor titles (Huyen's <em>AI Engineering</em>, <em>Hands-On LLMs</em>, Raschka) were independently re-verified with direct Goodreads fetches.</li>
+      </ul>
+
+      <h3 class="grp">Honest caveats</h3>
+      <ul class="clean">
+        <li><b>Thin data on agent books.</b> Every "agent"-titled book sits on a 30–75-vote Goodreads base — averages are noisy. Lean on author/publisher and sample chapters.</li>
+        <li><b>Reddit was not directly reachable</b> from this environment; community sentiment is Hacker-News-sourced plus dev-blog listicles. The recurrence of the same ~6 titles across independent sources is the signal.</li>
+        <li><b>Fast decay.</b> Framework-named books have a ~12-month useful life. Pattern, internals and theory books age far better.</li>
+        <li><b>One rating drifted mid-survey</b> — <em>AI Engineering</em> read 4.35/1,061 in one pass and 4.38/1,226 in another; the higher, later figure is shown. Expect small movement on any number here.</li>
+      </ul>
+
+      <h3 class="grp">Key sources</h3>
+      <ul class="clean src-list">
+        <li>Goodreads book pages (ratings) — <a href="https://www.goodreads.com/book/show/216848047-ai-engineering">AI Engineering</a>, <a href="https://www.goodreads.com/book/show/209234015-build-a-large-language-model">Raschka</a>, <a href="https://www.goodreads.com/book/show/210408850-hands-on-large-language-models">Hands-On LLMs</a>, and each title's linked page.</li>
+        <li>Publisher pages — <a href="https://www.oreilly.com/library/view/ai-engineering/9781098166298/">O'Reilly</a>, <a href="https://www.manning.com/">Manning</a>, <a href="https://www.packtpub.com/">Packt</a>, <a href="https://link.springer.com/book/10.1007/978-3-032-01402-3">Springer (Gulli)</a>.</li>
+        <li>Community — Hacker News threads on <a href="https://www.anthropic.com/research/building-effective-agents">Building Effective Agents</a> and "Learning resources for building AI agents?"; KDnuggets, dev.to and Victor Dibia's newsletter book round-ups.</li>
+        <li>Non-book frontier resources — see the Gaps tab for the full list with links.</li>
+      </ul>
+
+      <div class="callout">
+        <b>Bottom line.</b> Buy <em>AI Engineering</em> + one internals book (Raschka) + one
+        multi-agent book (Albada or Gulli). Treat everything framework-named as a 12-month
+        consumable. For MCP, evals, context engineering and production multi-agent, read the
+        essays — the books haven't caught up yet.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // ---- Tabs ----
+  var nav = document.getElementById('nav');
+  var btns = nav.querySelectorAll('.navbtn');
+  var tabs = document.querySelectorAll('.tab');
+  nav.addEventListener('click', function (e) {
+    var b = e.target.closest('.navbtn');
+    if (!b) return;
+    var tab = b.getAttribute('data-tab');
+    btns.forEach(function (x) { x.classList.toggle('active', x === b); });
+    tabs.forEach(function (t) { t.classList.toggle('active', t.id === 'tab-' + tab); });
+    window.scrollTo(0, 0);
+  });
+
+  // ---- Theme toggle ----
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    var next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+  });
+
+  // ---- Comparison table ----
+  var DATA = [
+    {title:"AI Engineering", author:"Chip Huyen", pub:"O'Reilly", year:2025, rating:4.38, votes:1226, cat:"Foundations", cur:"Very current"},
+    {title:"Build a Large Language Model (From Scratch)", author:"Sebastian Raschka", pub:"Manning", year:2024, rating:4.60, votes:354, cat:"Foundations", cur:"Very current"},
+    {title:"Hands-On Large Language Models", author:"Alammar & Grootendorst", pub:"O'Reilly", year:2024, rating:4.29, votes:282, cat:"Foundations", cur:"Current"},
+    {title:"Prompt Engineering for LLMs", author:"Berryman & Ziegler", pub:"O'Reilly", year:2024, rating:3.83, votes:93, cat:"Foundations", cur:"Current"},
+    {title:"LLM Engineer's Handbook", author:"Iusztin & Labonne", pub:"Packt", year:2024, rating:3.88, votes:69, cat:"Foundations", cur:"Current"},
+    {title:"Building LLMs for Production", author:"Bouchard & Peters", pub:"Towards AI", year:2024, rating:4.09, votes:93, cat:"Foundations", cur:"Current"},
+    {title:"Building LLM Powered Applications", author:"Valentina Alto", pub:"Packt", year:2024, rating:3.62, votes:34, cat:"Foundations", cur:"Aging"},
+    {title:"Building Applications with AI Agents", author:"Michael Albada", pub:"O'Reilly", year:2025, rating:3.40, votes:57, cat:"Agent / multi-agent", cur:"Very current"},
+    {title:"AI Agents in Action", author:"Micheal Lanham", pub:"Manning", year:2025, rating:3.12, votes:73, cat:"Agent", cur:"1st ed dated"},
+    {title:"Building Agentic AI Systems", author:"Biswas & Talukdar", pub:"Packt", year:2025, rating:2.93, votes:30, cat:"Agent", cur:"Current"},
+    {title:"Building AI Agents w/ LLMs, RAG & KG", author:"Raieli & Iuculano", pub:"Packt", year:2025, rating:null, votes:null, cat:"Agent", cur:"Very current"},
+    {title:"Building Agentic AI (Workflows…)", author:"Sinan Ozdemir", pub:"Addison-Wesley", year:2025, rating:null, votes:null, cat:"Agent", cur:"Very current"},
+    {title:"Learning LangChain", author:"Oshin & Campos", pub:"O'Reilly", year:2025, rating:3.79, votes:53, cat:"Framework", cur:"Current"},
+    {title:"Generative AI with LangChain (2e)", author:"Auffarth & Kuligin", pub:"Packt", year:2025, rating:3.58, votes:31, cat:"Framework", cur:"Current"},
+    {title:"Agentic Design Patterns", author:"Antonio Gulli", pub:"Springer", year:2025, rating:null, votes:null, cat:"Multi-agent", cur:"Very current"},
+    {title:"Agentic Architectural Patterns", author:"Arsanjani & Bustos", pub:"Packt", year:2025, rating:null, votes:null, cat:"Multi-agent", cur:"Very current"},
+    {title:"AI Agents and Applications (LC/LG/MCP)", author:"Roberto Infante", pub:"Manning", year:2026, rating:null, votes:null, cat:"Multi-agent", cur:"MEAP"},
+    {title:"Build a Multi-Agent System (from Scratch)", author:"Val Andrei Fajardo", pub:"Manning", year:2026, rating:null, votes:null, cat:"Multi-agent", cur:"Early access"},
+    {title:"AI Agents: The Definitive Guide", author:"Nicole Koenigstein", pub:"O'Reilly", year:2026, rating:null, votes:null, cat:"Multi-agent", cur:"Forthcoming"},
+    {title:"An Introduction to MultiAgent Systems", author:"Michael Wooldridge", pub:"Wiley", year:2009, rating:3.55, votes:71, cat:"Theory", cur:"Theory"},
+    {title:"MAS: Algorithmic, Game-Theoretic…", author:"Shoham & Leyton-Brown", pub:"Cambridge", year:2008, rating:3.75, votes:40, cat:"Theory", cur:"Theory"},
+    {title:"Multiagent Systems (Weiss, ed.)", author:"Gerhard Weiss (ed.)", pub:"MIT Press", year:2013, rating:3.74, votes:50, cat:"Theory", cur:"Theory"},
+    {title:"Reinforcement Learning: An Introduction", author:"Sutton & Barto", pub:"MIT Press", year:2018, rating:4.54, votes:839, cat:"Theory (adjacent)", cur:"Background"}
+  ];
+  var tbody = document.querySelector('#cmp tbody');
+  var sortK = 'rating', sortDir = -1;
+  function render() {
+    var rows = DATA.slice().sort(function (a, b) {
+      var x = a[sortK], y = b[sortK];
+      if (x === null) return 1; if (y === null) return -1; // nulls last
+      if (typeof x === 'string') { x = x.toLowerCase(); y = y.toLowerCase(); }
+      if (x < y) return -1 * sortDir; if (x > y) return 1 * sortDir; return 0;
+    });
+    tbody.innerHTML = rows.map(function (r) {
+      var thin = r.votes !== null && r.votes < 100;
+      var rate = r.rating === null ? '<span style="color:var(--text-faint)">—</span>'
+                 : '<span style="color:var(--gold);font-weight:600">' + r.rating.toFixed(2) + '</span>';
+      var votes = r.votes === null ? '<span style="color:var(--text-faint)">—</span>'
+                  : (thin ? '<span style="color:var(--danger)">' + r.votes + '</span>' : r.votes);
+      return '<tr>' +
+        '<td class="title">' + r.title + '</td>' +
+        '<td>' + r.author + '</td>' +
+        '<td>' + r.pub + '</td>' +
+        '<td class="num">' + r.year + '</td>' +
+        '<td class="num">' + rate + '</td>' +
+        '<td class="num">' + votes + '</td>' +
+        '<td><span class="pill">' + r.cat + '</span></td>' +
+        '<td>' + r.cur + '</td>' +
+      '</tr>';
+    }).join('');
+    document.querySelectorAll('#cmp thead th').forEach(function (th) {
+      var a = th.querySelector('.arrow');
+      a.textContent = th.getAttribute('data-k') === sortK ? (sortDir === 1 ? '▲' : '▼') : '';
+    });
+  }
+  document.querySelectorAll('#cmp thead th').forEach(function (th) {
+    th.addEventListener('click', function () {
+      var k = th.getAttribute('data-k');
+      if (k === sortK) sortDir *= -1;
+      else { sortK = k; sortDir = th.getAttribute('data-t') === 'n' ? -1 : 1; }
+      render();
+    });
+  });
+  render();
+</script>
+</body>
+</html>
