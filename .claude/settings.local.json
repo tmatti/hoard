@@ -4,7 +4,8 @@
       "Bash(ls /Users/tim/dev/github/tmatti/)",
       "WebSearch",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:developers.cloudflare.com)"
+      "WebFetch(domain:developers.cloudflare.com)",
+      "Bash(git pull *)"
     ]
   }
 }
