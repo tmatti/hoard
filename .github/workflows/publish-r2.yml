@@ -63,12 +63,14 @@ jobs:
           RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
         run: |
-          # Mirror pages (with delete) into the hoard/ prefix only.
+          # Mirror pages (with delete) into the bucket root. The bucket is
+          # dedicated to hoard artifacts, so the delete pass owning the whole
+          # bucket is intended — never store anything else in it.
           # --exclude "/manifest.json" keeps sync's delete pass from touching
           # the manifest object (excluded files are not deleted since we are
           # not using --delete-excluded). Content-Type comes from rclone's
           # extension-based MIME detection.
-          rclone sync "$STAGE" "r2:${R2_BUCKET}/hoard" \
+          rclone sync "$STAGE" "r2:${R2_BUCKET}" \
             --exclude "/manifest.json" \
             --checksum \
             --header-upload "Cache-Control: public, max-age=300" \
@@ -76,7 +78,7 @@ jobs:
 
           # Upload the manifest LAST, so pages exist before the list updates.
           # --ignore-times forces re-upload every run so the header applies.
-          rclone copyto "$STAGE/manifest.json" "r2:${R2_BUCKET}/hoard/manifest.json" \
+          rclone copyto "$STAGE/manifest.json" "r2:${R2_BUCKET}/manifest.json" \
             --header-upload "Cache-Control: no-cache" \
             --ignore-times \
             -v

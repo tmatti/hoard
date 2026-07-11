@@ -12,12 +12,11 @@ list, with each artifact viewable as its own page.
 
 ## The bucket contract
 
-Base URL: `https://<BUCKET_PUBLIC_DOMAIN>/hoard/`. The bucket is served on a
-subdomain of this site's own domain (e.g. `hoard.<apex>`); I will supply the
-exact hostname. Keep it in a single config value, not scattered through the
-code.
+Base URL: `https://hoard.timmatti.com/` (objects live at the bucket root).
+The bucket is served on a subdomain of this site's own domain. Keep the
+hostname in a single config value, not scattered through the code.
 
-1. **`hoard/manifest.json`** — the list of projects. Served with
+1. **`manifest.json`** — the list of projects. Served with
    `Cache-Control: no-cache`. Shape:
 
    ```json
@@ -37,7 +36,7 @@ code.
    `projects` is sorted newest-first by `created`. Titles are plain decoded
    text (may contain Unicode like `→` and `—`). There are no descriptions.
 
-2. **`hoard/<slug>/index.html`** — one fully self-contained HTML page per
+2. **`<slug>/index.html`** — one fully self-contained HTML page per
    project (inline CSS/JS; only external dependency is Google Fonts). Served
    with `Content-Type: text/html` and `Cache-Control: public, max-age=300`.
    New projects appear automatically when the manifest updates; do not
@@ -45,12 +44,12 @@ code.
 
 ## What to build
 
-1. A **projects index page** on the site that fetches `hoard/manifest.json`
-   and renders one entry per project: title, created date (and updated date
-   when it differs), linking to the artifact page. Handle fetch failure
-   gracefully (show a quiet error state, don't break the page).
+1. A **projects index page** on the site that fetches `manifest.json` from
+   the base URL and renders one entry per project: title, created date (and
+   updated date when it differs), linking to the artifact page. Handle fetch
+   failure gracefully (show a quiet error state, don't break the page).
 2. A way to **view each artifact**: plain `<a href>` links directly to
-   `hoard/<slug>/index.html` on the bucket subdomain (the pages are
+   `<slug>/index.html` on the bucket subdomain (the pages are
    standalone documents with their own styling and light/dark handling).
    This is decided — do not iframe, proxy, or copy the pages into this site.
 3. Fetch the manifest **client-side at view time** (decided): new hoard
