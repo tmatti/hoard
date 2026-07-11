@@ -1,0 +1,117 @@
+# Publish each investigation folder's index.html + a generated manifest.json
+# to a Cloudflare R2 bucket, so the owner's personal site can render a
+# projects list.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   R2_ACCESS_KEY_ID      - R2 access key id
+#   R2_SECRET_ACCESS_KEY  - R2 secret access key
+#   R2_ACCOUNT_ID         - Cloudflare account id (used to build the endpoint)
+#   R2_BUCKET             - target bucket name
+# The R2 API token backing the key/secret should be scoped to this one
+# bucket with Object Read & Write only (least privilege).
+#
+# Security note: this is a PUBLIC repo. Bucket name, account id, and
+# credentials appear ONLY as env vars sourced from the secrets above and are
+# never hardcoded. Repo-derived strings (folder names, titles) are handled
+# exclusively inside build_staging.py and are never interpolated into shell.
+
+name: Publish artifacts to R2
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-r2
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so build_staging.py can derive created/updated dates.
+          fetch-depth: 0
+
+      - name: Build staging directory + manifest
+        env:
+          STAGE: ${{ runner.temp }}/stage
+        run: |
+          python3 .github/scripts/build_staging.py "$GITHUB_WORKSPACE" "$STAGE"
+
+      - name: Install rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+
+      - name: Publish to R2
+        id: publish
+        env:
+          STAGE: ${{ runner.temp }}/stage
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          # rclone reads its config entirely from these env vars; no config
+          # file is written to disk.
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          # Mirror pages (with delete) into the bucket root. The bucket is
+          # dedicated to hoard artifacts, so the delete pass owning the whole
+          # bucket is intended — never store anything else in it.
+          # --exclude "/manifest.json" keeps sync's delete pass from touching
+          # the manifest object (excluded files are not deleted since we are
+          # not using --delete-excluded). Content-Type comes from rclone's
+          # extension-based MIME detection.
+          rclone sync "$STAGE" "r2:${R2_BUCKET}" \
+            --exclude "/manifest.json" \
+            --checksum \
+            --header-upload "Cache-Control: public, max-age=300" \
+            -v
+
+          # Upload the manifest LAST, so pages exist before the list updates.
+          # --ignore-times forces re-upload every run so the header applies.
+          rclone copyto "$STAGE/manifest.json" "r2:${R2_BUCKET}/manifest.json" \
+            --header-upload "Cache-Control: no-cache" \
+            --ignore-times \
+            -v
+
+      - name: Publish summary
+        if: always()
+        env:
+          STAGE: ${{ runner.temp }}/stage
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          {
+            echo "## Publish to R2"
+            echo ""
+            if [ -f "$STAGE/manifest.json" ]; then
+              if [ "$PUBLISH_OUTCOME" = "success" ]; then
+                echo "Slugs published:"
+              else
+                echo "Upload did not complete (outcome: $PUBLISH_OUTCOME); slugs staged:"
+              fi
+              echo ""
+              # Read slugs from the generated manifest via python (no shell
+              # interpolation of repo-derived strings). Slugs are sanitized
+              # to a safe character set so untrusted folder names cannot
+              # inject markdown into the step summary.
+              python3 - "$STAGE/manifest.json" <<'PY'
+          import json, re, sys
+          with open(sys.argv[1], encoding="utf-8") as fh:
+              data = json.load(fh)
+          for proj in data.get("projects", []):
+              slug = re.sub(r"[^A-Za-z0-9._-]", "_", str(proj.get("slug", "")))
+              print(f"- `{slug}`")
+          PY
+            else
+              echo "No manifest was produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
