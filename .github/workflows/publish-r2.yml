@@ -46,9 +46,19 @@ jobs:
           python3 .github/scripts/build_staging.py "$GITHUB_WORKSPACE" "$STAGE"
 
       - name: Install rclone
+        env:
+          RCLONE_VERSION: v1.74.4
+          RCLONE_SHA256: fe435e0c36228e7c2f116a8701f01127bb1f694005fc11d1f27186c8bca4115d
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq rclone
+          # Pinned official build. Ubuntu's apt rclone (1.60, 2022) predates
+          # rclone's R2 quirk handling and gets 501 responses on PutObject.
+          # The hash above was cross-checked between downloads.rclone.org
+          # and the GitHub release SHA256SUMS.
+          curl -fsSLO "https://downloads.rclone.org/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-amd64.zip"
+          echo "${RCLONE_SHA256}  rclone-${RCLONE_VERSION}-linux-amd64.zip" | sha256sum -c -
+          unzip -q "rclone-${RCLONE_VERSION}-linux-amd64.zip"
+          sudo install "rclone-${RCLONE_VERSION}-linux-amd64/rclone" /usr/local/bin/rclone
+          rclone version
 
       - name: Publish to R2
         id: publish
@@ -80,10 +90,12 @@ jobs:
             -v
 
           # Upload the manifest LAST, so pages exist before the list updates.
-          # --ignore-times forces re-upload every run so the header applies.
+          # Its generated_at timestamp changes every run, so the content
+          # comparison always re-uploads it — no --ignore-times needed, and
+          # its absence lets the retry pass succeed if R2 stores the object
+          # but returns an error.
           rclone copyto "$STAGE/manifest.json" "r2:${R2_BUCKET}/manifest.json" \
             --header-upload "Cache-Control: no-cache" \
-            --ignore-times \
             -v
 
       - name: Publish summary
