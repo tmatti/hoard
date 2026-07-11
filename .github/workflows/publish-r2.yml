@@ -62,6 +62,9 @@ jobs:
           RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          # The token is bucket-scoped, so rclone's implicit CreateBucket
+          # check gets rejected by R2; skip it (the bucket always exists).
+          RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
         run: |
           # Mirror pages (with delete) into the bucket root. The bucket is
           # dedicated to hoard artifacts, so the delete pass owning the whole
