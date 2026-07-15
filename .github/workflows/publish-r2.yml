@@ -47,17 +47,20 @@ jobs:
 
       - name: Install rclone
         env:
-          RCLONE_VERSION: v1.74.4
-          RCLONE_SHA256: fe435e0c36228e7c2f116a8701f01127bb1f694005fc11d1f27186c8bca4115d
+          # Deliberately NOT named RCLONE_*: rclone parses any RCLONE_-prefixed
+          # env var as one of its own flags, so RCLONE_VERSION would be read
+          # as --version and crash the `rclone version` check below.
+          PIN_RCLONE_VERSION: v1.74.4
+          PIN_RCLONE_SHA256: fe435e0c36228e7c2f116a8701f01127bb1f694005fc11d1f27186c8bca4115d
         run: |
           # Pinned official build. Ubuntu's apt rclone (1.60, 2022) predates
           # rclone's R2 quirk handling and gets 501 responses on PutObject.
           # The hash above was cross-checked between downloads.rclone.org
           # and the GitHub release SHA256SUMS.
-          curl -fsSLO "https://downloads.rclone.org/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-amd64.zip"
-          echo "${RCLONE_SHA256}  rclone-${RCLONE_VERSION}-linux-amd64.zip" | sha256sum -c -
-          unzip -q "rclone-${RCLONE_VERSION}-linux-amd64.zip"
-          sudo install "rclone-${RCLONE_VERSION}-linux-amd64/rclone" /usr/local/bin/rclone
+          curl -fsSLO "https://downloads.rclone.org/${PIN_RCLONE_VERSION}/rclone-${PIN_RCLONE_VERSION}-linux-amd64.zip"
+          echo "${PIN_RCLONE_SHA256}  rclone-${PIN_RCLONE_VERSION}-linux-amd64.zip" | sha256sum -c -
+          unzip -q "rclone-${PIN_RCLONE_VERSION}-linux-amd64.zip"
+          sudo install "rclone-${PIN_RCLONE_VERSION}-linux-amd64/rclone" /usr/local/bin/rclone
           rclone version
 
       - name: Publish to R2
