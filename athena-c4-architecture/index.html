@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Athena — C4 Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<script>
+  // No-flash theme init: honor saved choice, else system preference.
+  (function () {
+    try {
+      var t = localStorage.getItem('athena-theme');
+      if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
+<style>
+  :root[data-theme="dark"] {
+    --ground:   oklch(0.185 0.012 128);
+    --panel:    oklch(0.225 0.014 128);
+    --panel2:   oklch(0.258 0.015 128);
+    --ink:      oklch(0.905 0.018 110);
+    --muted:    oklch(0.685 0.020 118);
+    --faint:    oklch(0.560 0.018 120);
+    --edge:     oklch(0.320 0.016 128);
+    --edge2:    oklch(0.400 0.018 128);
+
+    --sys:      oklch(0.760 0.130 150);   /* forest green — the star */
+    --sys-bg:   oklch(0.300 0.045 150);
+    --warm:     oklch(0.775 0.090 66);    /* walnut / oak — actors */
+    --warm-bg:  oklch(0.305 0.040 62);
+    --db:       oklch(0.720 0.075 168);   /* deep pine — database */
+    --db-bg:    oklch(0.295 0.035 168);
+    --ext:      oklch(0.720 0.030 85);    /* taupe — external */
+    --ext-bg:   oklch(0.290 0.014 85);
+    --amber:    oklch(0.795 0.120 74);    /* amber — async / embedding */
+    --amber-bg: oklch(0.315 0.050 70);
+
+    --ok:       oklch(0.760 0.130 150);
+    --bad:      oklch(0.700 0.110 32);
+    --ok-bg:    oklch(0.300 0.045 150);
+    --bad-bg:   oklch(0.300 0.055 32);
+    --shadow:   0 1px 2px oklch(0 0 0 / 0.35), 0 8px 24px oklch(0 0 0 / 0.28);
+  }
+  :root[data-theme="light"] {
+    --ground:   oklch(0.965 0.012 92);
+    --panel:    oklch(0.995 0.006 92);
+    --panel2:   oklch(0.945 0.012 90);
+    --ink:      oklch(0.285 0.020 120);
+    --muted:    oklch(0.470 0.022 118);
+    --faint:    oklch(0.590 0.020 118);
+    --edge:     oklch(0.880 0.014 96);
+    --edge2:    oklch(0.820 0.016 96);
+
+    --sys:      oklch(0.480 0.115 152);
+    --sys-bg:   oklch(0.930 0.038 150);
+    --warm:     oklch(0.520 0.085 58);
+    --warm-bg:  oklch(0.935 0.035 68);
+    --db:       oklch(0.470 0.070 175);
+    --db-bg:    oklch(0.928 0.030 172);
+    --ext:      oklch(0.520 0.028 80);
+    --ext-bg:   oklch(0.928 0.016 84);
+    --amber:    oklch(0.560 0.105 62);
+    --amber-bg: oklch(0.936 0.048 74);
+
+    --ok:       oklch(0.480 0.115 152);
+    --bad:      oklch(0.520 0.130 30);
+    --ok-bg:    oklch(0.930 0.038 150);
+    --bad-bg:   oklch(0.940 0.038 30);
+    --shadow:   0 1px 2px oklch(0.4 0.02 90 / 0.10), 0 10px 30px oklch(0.4 0.02 90 / 0.10);
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--ground); }
+  body {
+    margin: 0;
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: var(--ink);
+    background: var(--ground);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+  }
+  code { font-family: inherit; }
+  a { color: inherit; }
+
+  /* ---------------- Layout ---------------- */
+  .app { display: grid; grid-template-columns: 268px 1fr; min-height: 100vh; }
+
+  aside {
+    position: sticky; top: 0; align-self: start;
+    height: 100vh; overflow-y: auto;
+    border-right: 1px solid var(--edge);
+    background: var(--panel);
+    padding: 22px 16px 28px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .brand { padding: 6px 8px 4px; }
+  .brand .dollar { color: var(--sys); }
+  .brand .path { color: var(--muted); font-size: 12px; letter-spacing: .02em; }
+  .brand h1 { font-size: 16px; font-weight: 700; margin: 8px 0 2px; letter-spacing: -.01em; }
+  .brand .sub { font-size: 11.5px; color: var(--faint); line-height: 1.45; }
+
+  .navgroup { font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--faint); margin: 16px 8px 6px; }
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  .tab {
+    display: flex; align-items: center; gap: 10px;
+    font: inherit; font-size: 13px; text-align: left;
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    color: var(--muted); padding: 7px 10px; cursor: pointer; width: 100%;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .tab:hover { color: var(--ink); background: var(--panel2); }
+  .tab .lvl { font-size: 10px; color: var(--faint); min-width: 34px; }
+  .tab.active { color: var(--sys); border-color: var(--edge2); background: var(--sys-bg); }
+  .tab.active .lvl { color: var(--sys); opacity: .8; }
+  .tab:focus-visible { outline: 2px solid var(--sys); outline-offset: 1px; }
+
+  .themebtn {
+    margin-top: auto; font: inherit; font-size: 12px; cursor: pointer;
+    color: var(--muted); background: var(--panel2); border: 1px solid var(--edge);
+    border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .themebtn:hover { color: var(--ink); border-color: var(--edge2); }
+
+  main { padding: 40px clamp(20px, 4vw, 56px) 96px; max-width: 1080px; }
+  .view { display: none; animation: fade .22s ease; }
+  .view.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* ---------------- Section headers ---------------- */
+  .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--sys); }
+  h2.title { font-size: clamp(22px, 3vw, 30px); font-weight: 600; letter-spacing: -.02em; margin: 8px 0 10px; }
+  h2.title .mono { color: var(--warm); }
+  .lede { color: var(--muted); max-width: 74ch; margin: 0 0 26px; font-size: 14.5px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .badge-lvl { display: inline-block; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ground); background: var(--sys); border-radius: 5px; padding: 3px 9px; vertical-align: 2px; }
+
+  h3.sub { font-size: 14px; font-weight: 600; margin: 30px 0 4px; color: var(--ink); }
+  h3.sub::before { content: "~/ "; color: var(--faint); }
+  p { max-width: 78ch; }
+  p code, li code, td code, .lede code, .desc code {
+    font-size: .88em; background: var(--panel2); border: 1px solid var(--edge);
+    border-radius: 4px; padding: 0 5px; color: var(--ink);
+  }
+
+  /* ---------------- Panel + diagram ---------------- */
+  .panel { background: var(--panel); border: 1px solid var(--edge); border-radius: 14px;
+    padding: 24px; margin: 8px 0 4px; box-shadow: var(--shadow); overflow-x: auto; }
+  .diagram { min-width: 600px; display: flex; flex-direction: column; }
+
+  /* ---------------- Nodes ---------------- */
+  .node { background: var(--panel2); border: 1.5px solid var(--edge2); border-radius: 10px;
+    padding: 11px 15px; }
+  .node .kind { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
+  .node .name { font-weight: 700; font-size: 15px; margin: 3px 0 2px; }
+  .node .desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .node .desc code { font-size: 11px; }
+  .n-sys   { border-color: var(--sys);   background: var(--sys-bg);   } .n-sys .kind   { color: var(--sys); }
+  .n-warm  { border-color: var(--warm);  background: var(--warm-bg);  } .n-warm .kind  { color: var(--warm); }
+  .n-db    { border-color: var(--db);    background: var(--db-bg); border-top-width: 5px; border-radius: 14px 14px 10px 10px; } .n-db .kind { color: var(--db); }
+  .n-ext   { border-color: var(--ext);   background: var(--ext-bg); border-style: dashed; } .n-ext .kind { color: var(--ext); }
+  .n-amber { border-color: var(--amber); background: var(--amber-bg); } .n-amber .kind { color: var(--amber); }
+  .center { max-width: 560px; margin-left: auto; margin-right: auto; }
+
+  /* ---------------- Connectors ---------------- */
+  .conn { display: flex; flex-direction: column; align-items: center; padding: 2px 0; }
+  .conn .stem { width: 2px; height: 14px; background: var(--edge2); }
+  .conn .head { width: 0; height: 0; border: 5px solid transparent; border-top-color: var(--edge2); }
+  .conn .lbl { font-size: 10.5px; color: var(--muted); background: var(--panel2);
+    border: 1px solid var(--edge); border-radius: 999px; padding: 2px 10px; margin: 4px 0; white-space: nowrap; }
+  .split { display: grid; gap: 14px; }
+  .cols2 { grid-template-columns: 1fr 1fr; }
+  .cols3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .boundary { border: 1.5px dashed var(--sys); border-radius: 12px; padding: 16px;
+    background: color-mix(in oklch, var(--sys) 5%, transparent); display: flex; flex-direction: column; }
+  .boundary > .b-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--sys); margin: -2px 0 12px; }
+
+  ul.legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 18px 0 0; padding: 0; list-style: none;
+    font-size: 12px; color: var(--muted); }
+  ul.legend .sw { display: inline-block; width: 13px; height: 13px; border-radius: 4px; border: 1.5px solid;
+    vertical-align: -2px; margin-right: 6px; }
+
+  /* ---------------- Flow steps ---------------- */
+  .steps { display: flex; flex-direction: column; counter-reset: step; min-width: 520px; }
+  .step { display: grid; grid-template-columns: 30px 220px 1fr; gap: 14px; align-items: baseline;
+    padding: 11px 2px; border-top: 1px solid var(--edge); }
+  .step:first-child { border-top: none; }
+  .step::before { counter-increment: step; content: counter(step, decimal-leading-zero);
+    font-size: 11px; color: var(--faint); }
+  .who { font-size: 11.5px; white-space: nowrap; }
+  .chip { display: inline-block; border: 1px solid; border-radius: 999px; padding: 1px 8px; font-size: 11px; line-height: 1.7; }
+  .c-warm { color: var(--warm); border-color: var(--warm); background: var(--warm-bg); }
+  .c-sys  { color: var(--sys);  border-color: var(--sys);  background: var(--sys-bg); }
+  .c-db   { color: var(--db);   border-color: var(--db);   background: var(--db-bg); }
+  .c-ext  { color: var(--ext);  border-color: var(--ext);  background: var(--ext-bg); }
+  .c-amber{ color: var(--amber);border-color: var(--amber);background: var(--amber-bg); }
+  .arrow { color: var(--faint); }
+  .what { font-size: 13.5px; color: var(--ink); }
+  .what code { font-size: 11.5px; }
+
+  .fork { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; min-width: 520px; }
+  .outcome { border: 1.5px solid var(--edge2); border-radius: 12px; padding: 15px 17px; background: var(--panel2); }
+  .outcome h4 { margin: 0 0 9px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .outcome.good { border-color: var(--ok); } .outcome.good h4 { color: var(--ok); }
+  .outcome.bad  { border-color: var(--bad); } .outcome.bad h4 { color: var(--bad); }
+  .outcome p { font-size: 13px; margin: 0 0 9px; color: var(--muted); max-width: none; }
+  .outcome p:last-child { margin-bottom: 0; }
+  .outcome strong { color: var(--ink); }
+
+  /* ---------------- Callout ---------------- */
+  .callout { border-left: 3px solid var(--amber); background: var(--amber-bg);
+    border-radius: 0 10px 10px 0; padding: 12px 18px; font-size: 13.5px; margin: 18px 0 0; max-width: 82ch; }
+  .callout strong { color: var(--amber); }
+  .callout.sys { border-left-color: var(--sys); background: var(--sys-bg); } .callout.sys strong { color: var(--sys); }
+
+  /* ---------------- Schema tables ---------------- */
+  .tables { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; min-width: 720px; }
+  .tbl { border: 1.5px solid var(--db); border-radius: 12px; background: var(--panel2); overflow: hidden; }
+  .tbl h4 { margin: 0; font-size: 13px; padding: 9px 13px; background: var(--db-bg); color: var(--db);
+    border-bottom: 1px solid var(--edge); font-weight: 700; }
+  .tbl ul { list-style: none; margin: 0; padding: 9px 13px 11px; }
+  .tbl li { font-size: 11.5px; padding: 3px 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .tbl li .t { color: var(--faint); font-size: 10.5px; }
+  .tag { font-size: 9px; letter-spacing: .05em; border-radius: 3px; padding: 1px 5px; font-weight: 700; white-space: nowrap; }
+  .g-gin  { background: var(--sys-bg);  color: var(--sys);  border: 1px solid var(--sys); }
+  .g-hnsw { background: var(--db-bg);   color: var(--db);   border: 1px solid var(--db); }
+  .g-gen  { background: var(--amber-bg);color: var(--amber);border: 1px solid var(--amber); }
+  .g-pk   { background: var(--panel);   color: var(--muted);border: 1px solid var(--edge2); }
+
+  /* ---------------- Verification ---------------- */
+  .statrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 4px 0 26px; }
+  .stat { border: 1px solid var(--edge); border-radius: 12px; padding: 16px; background: var(--panel); }
+  .stat .n { font-size: 26px; font-weight: 700; color: var(--sys); }
+  .stat .l { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .stat.warm .n { color: var(--amber); }
+
+  table.check { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0; min-width: 560px; }
+  table.check th { text-align: left; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--faint); padding: 8px 10px; border-bottom: 1px solid var(--edge2); font-weight: 600; }
+  table.check td { padding: 8px 10px; border-bottom: 1px solid var(--edge); vertical-align: top; color: var(--muted); }
+  table.check td:first-child { color: var(--ink); }
+  table.check td .src { color: var(--faint); font-size: 11px; }
+  .yes { color: var(--ok); font-weight: 700; }
+  .wrap-scroll { overflow-x: auto; }
+
+  .drift { border: 1px solid var(--edge); border-left: 3px solid var(--amber); border-radius: 0 12px 12px 0;
+    background: var(--panel); padding: 15px 18px; margin: 14px 0; }
+  .drift.hard { border-left-color: var(--bad); }
+  .drift h4 { margin: 0 0 6px; font-size: 13.5px; color: var(--ink); }
+  .drift h4 .pill { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px;
+    border-radius: 999px; margin-left: 8px; vertical-align: 2px; border: 1px solid var(--amber); color: var(--amber); }
+  .drift.hard h4 .pill { border-color: var(--bad); color: var(--bad); }
+  .drift p { margin: 0; font-size: 13px; color: var(--muted); max-width: none; }
+
+  footer { color: var(--faint); font-size: 12px; border-top: 1px solid var(--edge); margin-top: 40px; padding-top: 16px; }
+  footer code { color: var(--muted); }
+
+  /* ---------------- Mobile ---------------- */
+  .menubtn { display: none; }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: fixed; z-index: 40; left: 0; top: 0; width: 260px; transform: translateX(-100%);
+      transition: transform .2s ease; box-shadow: var(--shadow); }
+    aside.open { transform: none; }
+    main { padding-top: 68px; }
+    .menubtn { display: inline-flex; position: fixed; top: 12px; left: 12px; z-index: 50;
+      background: var(--panel); border: 1px solid var(--edge2); border-radius: 8px; color: var(--ink);
+      font: inherit; font-size: 13px; padding: 7px 12px; cursor: pointer; align-items: center; gap: 8px; }
+    .scrim { display: none; position: fixed; inset: 0; background: oklch(0 0 0 / .5); z-index: 30; }
+    .scrim.show { display: block; }
+    .tables, .fork { min-width: 0; }
+    .step { grid-template-columns: 26px 1fr; }
+    .step .what { grid-column: 2; }
+  }
+  @media (max-width: 620px) {
+    .statrow { grid-template-columns: 1fr 1fr; }
+    .split.cols3, .split.cols2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<button class="menubtn" id="menubtn">☰ menu</button>
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+<aside id="sidebar">
+  <div class="brand">
+    <div class="path"><span class="dollar">$</span> tmatti/athena</div>
+    <h1>C4 Architecture</h1>
+    <div class="sub">Agent → Brain → Postgres, verified against source.</div>
+  </div>
+
+  <div class="navgroup">Walkthrough</div>
+  <nav id="nav">
+    <button class="tab active" data-view="overview"><span class="lvl">···</span> Overview</button>
+    <button class="tab" data-view="l1"><span class="lvl">L1</span> System context</button>
+    <button class="tab" data-view="l2"><span class="lvl">L2</span> Containers</button>
+    <button class="tab" data-view="l3"><span class="lvl">L3</span> Components</button>
+    <button class="tab" data-view="data"><span class="lvl">DB</span> Data model</button>
+  </nav>
+
+  <div class="navgroup">Dynamic flows</div>
+  <nav id="nav2">
+    <button class="tab" data-view="f-memory"><span class="lvl">→</span> Save a memory</button>
+    <button class="tab" data-view="f-note"><span class="lvl">→</span> Save a note</button>
+    <button class="tab" data-view="f-search"><span class="lvl">→</span> Search / recall</button>
+  </nav>
+
+  <div class="navgroup">Source check</div>
+  <nav id="nav3">
+    <button class="tab" data-view="verify"><span class="lvl">✓</span> Verification &amp; drift</button>
+  </nav>
+
+  <button class="themebtn" id="themebtn"><span id="themeicon">◐</span> <span id="themelabel">theme</span></button>
+</aside>
+
+<main>
+
+<!-- ===================== OVERVIEW ===================== -->
+<section class="view active" data-view="overview">
+  <div class="eyebrow">tmatti/athena · architecture</div>
+  <h2 class="title">Athena, from agent to Postgres</h2>
+  <p class="lede">A C4 walk through the personal-brain backend: <strong>one Go binary</strong> serving
+    REST and MCP on one port, a shared <strong>Brain</strong> service, and <strong>Postgres&nbsp;+&nbsp;pgvector</strong>
+    underneath. Then the three flows that matter — saving a memory, saving a note, and hybrid recall — each
+    traced end to end and checked line-by-line against the source at commit <code>0bfdac9</code>.</p>
+
+  <div class="statrow">
+    <div class="stat"><div class="n">2</div><div class="l">content types — memories &amp; notes</div></div>
+    <div class="stat"><div class="n">9</div><div class="l">MCP tools over one bearer-auth port</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">Go binary · REST + MCP · :8080</div></div>
+    <div class="stat warm"><div class="n">RRF</div><div class="l">keyword + vector, fused at k=60</div></div>
+  </div>
+
+  <h3 class="sub">What Athena is</h3>
+  <p>A single-user, self-hosted "personal brain." It stores two kinds of records —
+    <strong>memories</strong> (short atomic facts, embedded whole) and <strong>notes</strong> (longer
+    documents, chunked into <code>note_chunks</code> and embedded per chunk) — and retrieves them with
+    hybrid keyword + vector search fused by Reciprocal Rank Fusion. The pitch: durable, portable memory
+    for AI tools that isn't locked to any one vendor. Point Claude (or any MCP client) at it over MCP;
+    let any future CLI/web/mobile client use the same REST API against the same Postgres.</p>
+
+  <h3 class="sub">The three ideas worth remembering</h3>
+  <p>Everything below is a consequence of three deliberate design choices:</p>
+  <div class="split cols3" style="margin-top:12px">
+    <div class="node n-sys"><div class="kind">Layering</div><div class="name">Adapters over a Brain</div>
+      <div class="desc"><code>api</code> and <code>mcpserver</code> are thin adapters; all logic lives in
+        <code>service</code> (Brain); all SQL lives in <code>store</code>. The dependency arrow only points down.</div></div>
+    <div class="node n-amber"><div class="kind">Guarantee</div><div class="name">A write never fails on embedding</div>
+      <div class="desc">Rows persist first with <code>embed_status='pending'</code>; embedding is best-effort with
+        a background retry net. The generated tsvector makes them keyword-findable immediately.</div></div>
+    <div class="node n-db"><div class="kind">Storage</div><div class="name">Two indexes, side by side</div>
+      <div class="desc">Generated <code>tsvector</code> (GIN) and <code>vector(1536)</code> (HNSW cosine) live on
+        the same rows; hybrid search fuses a leg from each. Memories index whole; notes index by chunk.</div></div>
+  </div>
+
+  <div class="callout sys"><strong>How to read this:</strong> the left rail follows the C4 model top-down —
+    context, containers, components, data — then the three runtime flows, then a
+    <strong>Verification &amp; drift</strong> tab recording exactly what the source check confirmed and the few
+    places the original artifact drifted from the code.</div>
+</section>
+
+<!-- ===================== L1 CONTEXT ===================== -->
+<section class="view" data-view="l1">
+  <span class="badge-lvl">C4 · Level 1</span>
+  <h2 class="title">System context</h2>
+  <p class="lede">Two kinds of clients reach Athena: AI agents over MCP, and you (or scripts) over REST.
+    The only external dependency — the embedding API — is <strong>optional</strong>; without it Athena runs
+    keyword-only.</p>
+  <div class="panel"><div class="diagram">
+    <div class="split cols2" style="align-items:stretch">
+      <div class="node n-warm"><div class="kind">Person</div><div class="name">You</div>
+        <div class="desc">The single user. Converses with the agent, or hits the REST API directly.</div></div>
+      <div class="node n-warm"><div class="kind">Software system · client</div><div class="name">AI agent</div>
+        <div class="desc">Claude or any MCP client. Stores facts and recalls them mid-conversation.</div></div>
+    </div>
+    <div class="split cols2">
+      <div class="conn"><div class="stem"></div><div class="lbl">REST /v1 · HTTPS + bearer key</div><div class="stem"></div><div class="head"></div></div>
+      <div class="conn"><div class="stem"></div><div class="lbl">MCP tools: remember · recall · notes…</div><div class="stem"></div><div class="head"></div></div>
+    </div>
+    <div class="node n-sys"><div class="kind">Software system</div><div class="name">Athena</div>
+      <div class="desc">Personal brain: <strong>memories</strong> (atomic facts) and <strong>notes</strong>
+        (chunked documents) with hybrid keyword + vector search over Postgres/pgvector.</div></div>
+    <div class="conn"><div class="stem"></div><div class="lbl">POST /embeddings · content &amp; queries</div><div class="stem"></div><div class="head"></div></div>
+    <div class="node n-ext center"><div class="kind">External system · optional</div><div class="name">Embedding provider</div>
+      <div class="desc">Any OpenAI-compatible API (default base URL OpenRouter · <code>openai/text-embedding-3-small</code>
+        · 1536 dims; OpenAI &amp; Ollama work too). <code>EMBEDDING_PROVIDER=none</code> ⇒ keyword-only mode.</div></div>
+    <ul class="legend">
+      <li><span class="sw" style="border-color:var(--warm);background:var(--warm-bg)"></span>person / client</li>
+      <li><span class="sw" style="border-color:var(--sys);background:var(--sys-bg)"></span>Athena</li>
+      <li><span class="sw" style="border-color:var(--db);background:var(--db-bg);border-top-width:4px"></span>database</li>
+      <li><span class="sw" style="border-color:var(--ext);background:var(--ext-bg);border-style:dashed"></span>external</li>
+      <li><span class="sw" style="border-color:var(--amber);background:var(--amber-bg)"></span>async / embedding path</li>
+    </ul>
+  </div></div>
+  <div class="callout">Auth is one shared secret: <code>BRAIN_API_KEY</code> (min 16 chars) is the bearer token for
+    <em>both</em> the REST API and the MCP endpoint. <code>/healthz</code> is the only open route.</div>
+</section>
+
+<!-- ===================== L2 CONTAINERS ===================== -->
+<section class="view" data-view="l2">
+  <span class="badge-lvl">C4 · Level 2</span>
+  <h2 class="title">Containers</h2>
+  <p class="lede">The MCP server is <em>not</em> a separate process. It's mounted at <code>/mcp</code> behind the
+    same bearer-auth router as the REST API (or served over stdio with <code>--stdio</code>). Both are thin
+    adapters over the same <code>Brain</code> service — per the repo's layering rule, no business logic lives in either.</p>
+  <div class="panel"><div class="diagram">
+    <div class="split cols2">
+      <div class="node n-warm"><div class="kind">Client</div><div class="name">AI agent</div><div class="desc">MCP client</div></div>
+      <div class="node n-warm"><div class="kind">Client</div><div class="name">You / scripts</div><div class="desc">REST client</div></div>
+    </div>
+    <div class="split cols2">
+      <div class="conn"><div class="stem"></div><div class="lbl">Streamable HTTP /mcp · bearer</div><div class="stem"></div><div class="head"></div></div>
+      <div class="conn"><div class="stem"></div><div class="lbl">JSON /v1 · bearer</div><div class="stem"></div><div class="head"></div></div>
+    </div>
+    <div class="boundary">
+      <div class="b-label">Athena — single Go binary · :8080</div>
+      <div class="node n-sys"><div class="kind">Container · chi router</div><div class="name">HTTP router</div>
+        <div class="desc">Recoverer + request log · <code>/healthz</code> open · bearer auth
+          (<code>BRAIN_API_KEY</code>) guards <code>/v1</code> and <code>/mcp</code> alike</div></div>
+      <div class="split cols2">
+        <div class="conn"><div class="stem"></div><div class="head"></div></div>
+        <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      </div>
+      <div class="split cols2">
+        <div class="node n-sys"><div class="kind">Container · internal/mcpserver</div><div class="name">MCP server</div>
+          <div class="desc">9 tools: <code>remember</code> <code>recall</code> <code>forget</code> <code>list_memories</code>
+            <code>create_note</code> <code>get_note</code> <code>update_note</code> <code>delete_note</code> <code>list_tags</code></div></div>
+        <div class="node n-sys"><div class="kind">Container · internal/api</div><div class="name">REST API</div>
+          <div class="desc">CRUD for memories, notes, tags + <code>/v1/search</code> (exposes
+            <code>mode=</code> keyword | vector | hybrid)</div></div>
+      </div>
+      <div class="split cols2">
+        <div class="conn"><div class="stem"></div><div class="head"></div></div>
+        <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      </div>
+      <div class="node n-sys"><div class="kind">Container · internal/service</div><div class="name">Brain</div>
+        <div class="desc">All shared logic: chunking, embedding orchestration, search fusion, validation.
+          Both adapters call the exact same methods.</div></div>
+      <div class="split cols3">
+        <div class="conn"><div class="stem"></div><div class="lbl">SQL</div><div class="stem"></div><div class="head"></div></div>
+        <div class="conn"><div class="stem"></div><div class="lbl">Embed(texts)</div><div class="stem"></div><div class="head"></div></div>
+        <div class="conn"><div class="stem"></div><div class="lbl">goroutine · 1-min tick</div><div class="stem"></div><div class="head"></div></div>
+      </div>
+      <div class="split cols3">
+        <div class="node n-sys"><div class="kind">Container · internal/store</div><div class="name">Store</div>
+          <div class="desc">The <em>only</em> place SQL lives · pgx pool</div></div>
+        <div class="node n-amber"><div class="kind">Container · internal/embed</div><div class="name">Embedder</div>
+          <div class="desc"><code>Embedder</code> interface; OpenAI-compatible impl · 10s call deadline ·
+            <code>nil</code> ⇒ keyword-only</div></div>
+        <div class="node n-amber"><div class="kind">Container · background</div><div class="name">Embed retry loop</div>
+          <div class="desc">Re-embeds pending/failed rows via Store + Embedder · batches of 32 · exponential backoff.
+            Runs in HTTP <em>and</em> stdio mode.</div></div>
+      </div>
+    </div>
+    <div class="split cols2" style="margin-top:0">
+      <div class="conn"><div class="stem"></div><div class="lbl">pgx · goose migrations at startup</div><div class="stem"></div><div class="head"></div></div>
+      <div class="conn"><div class="stem"></div><div class="lbl">POST /embeddings</div><div class="stem"></div><div class="head"></div></div>
+    </div>
+    <div class="split cols2">
+      <div class="node n-db"><div class="kind">Database</div><div class="name">PostgreSQL + pgvector</div>
+        <div class="desc"><code>memories</code> · <code>notes</code> · <code>note_chunks</code> · <code>embedding_meta</code>
+          — tsvector generated columns (GIN) + <code>vector(1536)</code> (HNSW cosine)</div></div>
+      <div class="node n-ext"><div class="kind">External system</div><div class="name">Embedding provider</div>
+        <div class="desc">OpenAI-compatible <code>/embeddings</code> endpoint</div></div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ===================== L3 COMPONENTS ===================== -->
+<section class="view" data-view="l3">
+  <span class="badge-lvl">C4 · Level 3</span>
+  <h2 class="title">Components — package layering</h2>
+  <p class="lede">The dependency direction only ever points down. Handlers and tools are adapters;
+    <code>internal/service</code> owns behavior; <code>internal/store</code> owns SQL.</p>
+  <div class="panel"><div class="diagram">
+    <div class="node n-sys center"><div class="kind">Entry point</div><div class="name">cmd/athena</div>
+      <div class="desc">Loads config from env · runs embedded goose migrations · verifies <code>embedding_meta</code>
+        · wires everything · starts the retry goroutine (before the stdio branch)</div></div>
+    <div class="conn"><div class="stem"></div><div class="head"></div></div>
+    <div class="split cols2">
+      <div class="node n-sys"><div class="kind">Adapter</div><div class="name">internal/api</div>
+        <div class="desc">chi router, bearer auth, REST handlers — no business logic</div></div>
+      <div class="node n-sys"><div class="kind">Adapter</div><div class="name">internal/mcpserver</div>
+        <div class="desc">MCP tool registrations + JSON-schema args — no business logic</div></div>
+    </div>
+    <div class="conn"><div class="stem"></div><div class="head"></div></div>
+    <div class="node n-sys" style="max-width:660px;margin:0 auto"><div class="kind">Core</div>
+      <div class="name">internal/service — Brain</div>
+      <div class="desc"><code>CreateMemory</code> · <code>CreateNote</code> · <code>Search</code> · <code>UpdateNote</code>
+        · <code>RunEmbedRetryLoop</code> — orchestrates chunk, embed, store</div></div>
+    <div class="conn"><div class="stem"></div><div class="head"></div></div>
+    <div class="split cols3">
+      <div class="node n-sys"><div class="kind">Core</div><div class="name">internal/chunk</div>
+        <div class="desc"><code>Split()</code>: paragraphs packed to ~1200 chars, hard max 3000, ≤300-char overlap carried forward</div></div>
+      <div class="node n-amber"><div class="kind">Core</div><div class="name">internal/embed</div>
+        <div class="desc"><code>Embedder</code> interface · OpenAI-compatible impl · <code>FakeEmbedder</code> in tests (never the network)</div></div>
+      <div class="node n-sys"><div class="kind">Data</div><div class="name">internal/store</div>
+        <div class="desc">All SQL: CRUD, RRF search queries, pending-embed selection with backoff</div></div>
+    </div>
+    <div class="conn"><div class="stem"></div><div class="head"></div></div>
+    <div class="node n-db center"><div class="kind">Database</div><div class="name">PostgreSQL + pgvector</div>
+      <div class="desc">via <code>internal/db</code> (pool, migrate, embedding-meta guard) + <code>migrations/</code> (embedded goose SQL)</div></div>
+  </div></div>
+  <div class="callout sys"><strong>Adapters really are thin:</strong> a REST handler like <code>search()</code> just
+    reads query params and calls <code>Brain.Search</code>; the <code>recall</code> MCP tool calls the same method with
+    no <code>mode</code>, so it's always hybrid. Neither surface knows any SQL or fusion math.</div>
+</section>
+
+<!-- ===================== DATA MODEL ===================== -->
+<section class="view" data-view="data">
+  <span class="badge-lvl">Storage</span>
+  <h2 class="title">Data model — how things are saved</h2>
+  <p class="lede">The key asymmetry: <strong>memories are indexed whole</strong> (one row = one fact = one
+    embedding), while <strong>notes are indexed by chunk</strong> — the note row keeps the full document for
+    retrieval, but every search index lives on <code>note_chunks</code>. The <code>notes</code> table itself has
+    no tsvector and no embedding.</p>
+  <div class="panel"><div class="diagram">
+    <div class="tables">
+      <div class="tbl"><h4>memories</h4><ul>
+        <li>id <span class="t">uuid</span> <span class="tag g-pk">PK</span></li>
+        <li>content <span class="t">text — the atomic fact</span></li>
+        <li>tags <span class="t">text[]</span> <span class="tag g-gin">GIN</span></li>
+        <li>source <span class="t">text, optional origin</span></li>
+        <li>embedding <span class="t">vector(1536)</span> <span class="tag g-hnsw">HNSW cos</span></li>
+        <li>embed_status <span class="t">pending·ok·failed</span></li>
+        <li>search <span class="t">tsvector</span> <span class="tag g-gen">GENERATED</span> <span class="tag g-gin">GIN</span></li>
+        <li>embed_attempts <span class="t">int · backoff counter</span></li>
+        <li>embed_last_attempt_at <span class="t">timestamptz · backoff clock</span></li>
+        <li>created_at / updated_at</li>
+      </ul></div>
+      <div class="tbl"><h4>notes</h4><ul>
+        <li>id <span class="t">uuid</span> <span class="tag g-pk">PK</span></li>
+        <li>title <span class="t">text</span></li>
+        <li>content <span class="t">text — full doc, source of truth</span></li>
+        <li>tags <span class="t">text[]</span> <span class="tag g-gin">GIN</span></li>
+        <li>created_at / updated_at</li>
+        <li><span class="t">no embedding, no tsvector here — chunks carry both; embed_status is aggregated from chunks at read time</span></li>
+      </ul></div>
+      <div class="tbl"><h4>note_chunks</h4><ul>
+        <li>id <span class="t">uuid</span> <span class="tag g-pk">PK</span></li>
+        <li>note_id <span class="t">FK → notes · ON DELETE CASCADE</span></li>
+        <li>idx <span class="t">int · UNIQUE(note_id, idx)</span></li>
+        <li>content <span class="t">text — what gets embedded</span></li>
+        <li>embedding <span class="t">vector(1536)</span> <span class="tag g-hnsw">HNSW cos</span></li>
+        <li>embed_status <span class="t">pending·ok·failed</span></li>
+        <li>search <span class="t">tsvector</span> <span class="tag g-gen">GENERATED</span> <span class="tag g-gin">GIN</span></li>
+        <li>embed_attempts <span class="t">int</span> · embed_last_attempt_at <span class="t">timestamptz</span></li>
+      </ul></div>
+    </div>
+    <div class="callout"><strong>Model-drift guard:</strong> a single-row <code>embedding_meta</code> table
+      (<code>id bool PK CHECK (id)</code>) records provider / model / dimensions. On first boot Athena adopts the
+      configured dims — <code>ALTER</code>-ing the vector columns and rebuilding the HNSW indexes if they differ from
+      the migration's 1536. On every later boot, any provider/model/dims mismatch is a hard, fail-fast error whose
+      message embeds the exact remediation SQL. <code>EMBEDDING_PROVIDER=none</code> skips the guard.</div>
+    <div class="callout sys"><strong>Indexing asymmetry, precisely:</strong> GIN on <code>memories.search</code>,
+      <code>memories.tags</code>, <code>notes.tags</code>, <code>note_chunks.search</code>; HNSW cosine on
+      <code>memories.embedding</code> and <code>note_chunks.embedding</code>; a btree on <code>note_chunks.note_id</code>.
+      The <code>notes</code> table has <em>no</em> search index at all — it's a retrieval-only document store.</div>
+  </div></div>
+</section>
+
+<!-- ===================== FLOW: MEMORY ===================== -->
+<section class="view" data-view="f-memory">
+  <span class="badge-lvl">Dynamic flow</span>
+  <h2 class="title">Saving a memory — <span class="mono">remember</span></h2>
+  <p class="lede">The core guarantee: <strong>an embedding failure never fails a write.</strong> The row persists
+    first; the embedding is best-effort with a background safety net.</p>
+  <div class="panel">
+    <div class="steps">
+      <div class="step"><span class="who"><span class="chip c-warm">agent</span> <span class="arrow">→</span> <span class="chip c-sys">mcp</span></span>
+        <span class="what"><code>remember(content, tags?, source?)</code> — one atomic fact per call (the tool description tells the agent not to batch)</span></div>
+      <div class="step"><span class="who"><span class="chip c-sys">mcp</span> <span class="arrow">→</span> <span class="chip c-sys">brain</span></span>
+        <span class="what"><code>Brain.CreateMemory</code> — the REST <code>POST /v1/memories</code> path lands here too</span></div>
+      <div class="step"><span class="who"><span class="chip c-sys">brain</span> <span class="arrow">→</span> <span class="chip c-db">store/pg</span></span>
+        <span class="what"><code>INSERT INTO memories</code> with <code>embed_status='pending'</code>. The <code>search</code> tsvector
+          is a GENERATED column — <strong>keyword search finds it immediately</strong>, embedding or not.</span></div>
+      <div class="step"><span class="who"><span class="chip c-sys">brain</span> <span class="arrow">→</span> <span class="chip c-ext">embed api</span></span>
+        <span class="what"><code>Embed([content])</code>, synchronous under a 10-second context deadline</span></div>
+    </div>
+    <div class="fork">
+      <div class="outcome good"><h4>Embedding succeeds</h4>
+        <p><code>SetMemoryEmbedding(id, content, vec)</code> — the UPDATE is <strong>content-guarded</strong>
+          (<code>WHERE id=$1 AND content=$3</code>): if the row changed mid-flight the stale vector is dropped, not
+          written. It also resets <code>embed_attempts=0, embed_last_attempt_at=NULL</code>.</p>
+        <p>Returned to agent: <code>embed_status='ok'</code>.</p></div>
+      <div class="outcome bad"><h4>Embedding fails / provider = none</h4>
+        <p><code>MarkMemoryEmbedFailed</code> increments <code>embed_attempts</code> and stamps
+          <code>embed_last_attempt_at</code>; the tool call still returns <strong>"Stored memory id=…"</strong>
+          with <code>embed_status='failed'</code>.</p>
+        <p>The <strong>retry loop</strong> (1-min tick, batches ≤32 across memories + chunks) re-embeds it — first
+          retry immediate, then backoff 4 / 8 / 16 / 32 / 64 min, capped at 1 h, so one broken row never starves the rest.</p></div>
+    </div>
+  </div>
+  <div class="callout"><strong>Why "immediate then backoff":</strong> a row is eligible while
+    <code>embed_attempts &lt; 2</code>. A synchronous failure sets attempts to 1, so the very next tick retries with no
+    delay (a transient blip recovers fast). Only after that does the exponential clock
+    <code>1 min · 2^attempts</code> kick in.</div>
+</section>
+
+<!-- ===================== FLOW: NOTE ===================== -->
+<section class="view" data-view="f-note">
+  <span class="badge-lvl">Dynamic flow</span>
+  <h2 class="title">Saving a note — <span class="mono">create_note</span></h2>
+  <p class="lede">Notes pass through the chunker first; the note and its chunks land in <strong>one transaction</strong>,
+    then every chunk is embedded in <strong>one batched API call</strong>.</p>
+  <div class="panel">
+    <div class="steps">
+      <div class="step"><span class="who"><span class="chip c-warm">agent</span> <span class="arrow">→</span> <span class="chip c-sys">mcp</span></span>
+        <span class="what"><code>create_note(title, content, tags?)</code> — for anything longer than an atomic fact</span></div>
+      <div class="step"><span class="who"><span class="chip c-sys">brain</span> <span class="arrow">→</span> <span class="chip c-sys">chunk</span></span>
+        <span class="what"><code>chunk.Split(content)</code>: split on blank-line paragraphs, greedily pack to ~1200 chars
+          (hard max 3000, oversized paragraphs split on sentences), and carry the last ≤300 chars into the next chunk
+          as <strong>overlap</strong> for context continuity</span></div>
+      <div class="step"><span class="who"><span class="chip c-sys">brain</span> <span class="arrow">→</span> <span class="chip c-db">store/pg</span></span>
+        <span class="what">One transaction: <code>INSERT notes</code> + <code>INSERT note_chunks (idx 0…n, 'pending')</code>
+          — committed before any network call</span></div>
+      <div class="step"><span class="who"><span class="chip c-sys">brain</span> <span class="arrow">→</span> <span class="chip c-ext">embed api</span></span>
+        <span class="what"><code>Embed([all chunk texts])</code> — one batched call, 10-second deadline</span></div>
+    </div>
+    <div class="fork">
+      <div class="outcome good"><h4>Batch succeeds</h4>
+        <p><code>SetChunkEmbedding</code> per chunk, each content-guarded. Note returns with <code>embed_status='ok'</code>.</p></div>
+      <div class="outcome bad"><h4>Batch fails</h4>
+        <p>Every chunk is marked failed; the note is saved regardless. On retry, if a batch keeps failing the loop
+          <strong>falls back to per-item embedding</strong> so one poison chunk can't block the others.</p></div>
+    </div>
+    <div class="callout"><strong>Updates:</strong> <code>update_note</code> with new content deletes and re-creates
+      <em>all</em> chunks in the same transaction, then re-embeds. A note's <code>embed_status</code> is never a stored
+      column — it's aggregated on read from its chunks via <code>bool_or</code>: failed if any failed, else pending if any
+      pending, else ok.</div>
+  </div>
+</section>
+
+<!-- ===================== FLOW: SEARCH ===================== -->
+<section class="view" data-view="f-search">
+  <span class="badge-lvl">Dynamic flow</span>
+  <h2 class="title">Search — <span class="mono">recall</span></h2>
+  <p class="lede">Hybrid search = a keyword leg and a vector leg, fused with <strong>Reciprocal Rank Fusion</strong>.
+    Memories and note chunks are searched separately, then merged on a shared score scale. The MCP <code>recall</code>
+    tool always runs hybrid; REST <code>/v1/search</code> also exposes <code>mode=keyword|vector</code>.</p>
+  <div class="panel"><div class="diagram">
+    <div class="node n-warm center"><div class="kind">Query</div><div class="name">recall(query, limit?, type?, tag?)</div>
+      <div class="desc"><code>type</code> restricts to memories / notes / all · <code>tag</code> filters inside both legs, before ranking</div></div>
+    <div class="conn"><div class="stem"></div><div class="lbl">Embed(query) · 10s deadline</div><div class="stem"></div><div class="head"></div></div>
+    <div class="node n-amber center"><div class="kind">Query embedding</div><div class="name">Resolve the query vector</div>
+      <div class="desc"><strong>Hybrid degrades, never fails:</strong> if embedding errors or no provider is configured,
+        the search silently falls back to keyword-only. Pure <code>vector</code> mode errors instead.
+        <code>keyword</code> mode never calls the API.</div></div>
+    <div class="split cols2">
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+    </div>
+    <div class="split cols2">
+      <div class="boundary" style="border-color:var(--db)">
+        <div class="b-label" style="color:var(--db)">SearchMemories — whole rows</div>
+        <div class="split cols2">
+          <div class="node n-sys"><div class="kind">Keyword leg</div><div class="name">tsquery</div>
+            <div class="desc"><code>websearch_to_tsquery</code> + <code>ts_rank_cd</code> over GIN tsvector · top 40</div></div>
+          <div class="node n-db"><div class="kind">Vector leg</div><div class="name">cosine</div>
+            <div class="desc"><code>embedding &lt;=&gt; $q</code> over HNSW · top 40 · skips rows with NULL embedding</div></div>
+        </div>
+        <div class="conn"><div class="stem"></div><div class="head"></div></div>
+        <div class="node n-amber"><div class="kind">Fusion</div><div class="name">RRF: score = Σ 1/(60 + rank)</div>
+          <div class="desc"><code>FULL OUTER JOIN</code> of both legs — a row found by only one leg still scores</div></div>
+      </div>
+      <div class="boundary" style="border-color:var(--db)">
+        <div class="b-label" style="color:var(--db)">SearchNotes — chunk level</div>
+        <div class="split cols2">
+          <div class="node n-sys"><div class="kind">Keyword leg</div><div class="name">tsquery</div>
+            <div class="desc">over <code>note_chunks.search</code> · top 40</div></div>
+          <div class="node n-db"><div class="kind">Vector leg</div><div class="name">cosine</div>
+            <div class="desc">over <code>note_chunks.embedding</code> · top 40</div></div>
+        </div>
+        <div class="conn"><div class="stem"></div><div class="head"></div></div>
+        <div class="node n-amber"><div class="kind">Fusion + dedupe</div><div class="name">RRF per chunk, then DISTINCT ON (note_id)</div>
+          <div class="desc">each note surfaces once, its <strong>best-scoring chunk</strong> becomes the snippet (with <code>chunk_id</code>)</div></div>
+      </div>
+    </div>
+    <div class="split cols2">
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+    </div>
+    <div class="node n-sys" style="max-width:660px;margin:0 auto"><div class="kind">Merge</div>
+      <div class="name">Merge · stable sort by score desc · cap limit (10 default, 50 max)</div>
+      <div class="desc">Memory and note scores are comparable because single-leg modes use the same
+        <code>1/(60+rank)</code> scale as the fused score</div></div>
+    <div class="conn"><div class="stem"></div><div class="head"></div></div>
+    <div class="node n-warm" style="max-width:660px;margin:0 auto"><div class="kind">Result → agent</div><div class="name">Ranked list</div>
+      <div class="desc"><code>type</code> · <code>id</code> · <code>score</code> · one-line snippet · <code>title</code> +
+        <code>chunk_id</code> for notes · <code>tags</code></div></div>
+    <div class="callout"><strong>Freshness:</strong> because the keyword leg reads the generated tsvector and fusion is a
+      FULL OUTER JOIN, a just-written row whose embedding is still pending is findable immediately — the vector leg simply
+      contributes nothing for it yet.</div>
+  </div></div>
+  <h3 class="sub">Referencing — results are pointers, not payloads</h3>
+  <div class="split cols2" style="margin-top:10px">
+    <div class="outcome"><h4 style="color:var(--sys)">Follow the reference</h4>
+      <p><span class="chip c-sys">recall</span> returns ids and snippets. The agent then calls
+        <span class="chip c-sys">get_note(note_id)</span> for the <strong>full original content</strong> — always the note
+        row, never the chunks — or acts on <span class="chip c-sys">update_note(id)</span> /
+        <span class="chip c-sys">forget(memory_id)</span>. Deleting a note cascades to its chunks; a memory delete is a single row.</p></div>
+    <div class="outcome"><h4 style="color:var(--sys)">Tags are the cross-cutting index</h4>
+      <p><span class="chip c-sys">list_tags</span> aggregates counts across memories <em>and</em> notes
+        (<code>UNION ALL</code> + <code>GROUP BY</code>) so the agent reuses vocabulary instead of inventing new tags; every
+        list and search call accepts a <code>tag</code> filter (GIN-indexed <code>text[]</code>).</p></div>
+  </div>
+</section>
+
+<!-- ===================== VERIFICATION ===================== -->
+<section class="view" data-view="verify">
+  <span class="badge-lvl">Source check</span>
+  <h2 class="title">Verification &amp; drift</h2>
+  <p class="lede">The original artifact was checked line-by-line against a fresh clone of <code>tmatti/athena</code>
+    (<code>master</code> @ <code>0bfdac9</code>). Verdict: <strong>essentially 100% accurate</strong>. Every load-bearing
+    number holds. The notes below record what was confirmed and the few minor points of drift or under-specification.</p>
+
+  <div class="statrow">
+    <div class="stat"><div class="n">24</div><div class="l">claims checked against source</div></div>
+    <div class="stat"><div class="n">23</div><div class="l">confirmed exactly as stated</div></div>
+    <div class="stat warm"><div class="n">1</div><div class="l">concrete factual miss (stale doc link)</div></div>
+    <div class="stat warm"><div class="n">9</div><div class="l">enrichments beyond the artifact</div></div>
+  </div>
+
+  <h3 class="sub">Confirmed against source</h3>
+  <div class="panel wrap-scroll" style="padding:12px 16px">
+    <table class="check">
+      <thead><tr><th>Claim</th><th>Where in source</th><th>✓</th></tr></thead>
+      <tbody>
+        <tr><td>Chunk ~1200 / max 3000 / overlap ≤300</td><td class="src">chunk/chunker.go · Target/Max/OverlapSize</td><td class="yes">✓</td></tr>
+        <tr><td>Retry batch ≤32 across memories + chunks</td><td class="src">service/retry.go · retryBatchSize; store/embeds.go UNION ALL</td><td class="yes">✓</td></tr>
+        <tr><td>Retry 1-min tick; per-item fallback on batch fail</td><td class="src">main.go · RunEmbedRetryLoop(time.Minute); retry.go retryPerItem</td><td class="yes">✓</td></tr>
+        <tr><td>Backoff: immediate first, then 4/8/16… capped 1h</td><td class="src">store/embeds.go · pendingEligible</td><td class="yes">✓</td></tr>
+        <tr><td>RRF constant k = 60; 40 candidates per leg</td><td class="src">store/search.go · rrfK, candidatePool</td><td class="yes">✓</td></tr>
+        <tr><td>FULL OUTER JOIN fuses the two legs</td><td class="src">search.go / notes.go hybrid CTE</td><td class="yes">✓</td></tr>
+        <tr><td>Content-guarded UPDATE <code>WHERE id=$1 AND content=$3</code></td><td class="src">store/memories.go, store/embeds.go setters</td><td class="yes">✓</td></tr>
+        <tr><td>9 MCP tools, exact names</td><td class="src">mcpserver/tools.go · registerTools</td><td class="yes">✓</td></tr>
+        <tr><td>Schema: 4 tables, FK CASCADE, UNIQUE(note_id, idx)</td><td class="src">migrations/00001_init.sql</td><td class="yes">✓</td></tr>
+        <tr><td>tsvector GENERATED + GIN; vector(1536) HNSW cosine; tags GIN</td><td class="src">00001 + 00002_search_indexes.sql</td><td class="yes">✓</td></tr>
+        <tr><td>Model-drift guard: single-row meta, startup fail-fast</td><td class="src">db/dim.go · EnsureEmbeddingMeta</td><td class="yes">✓</td></tr>
+        <tr><td>Hybrid degrades to keyword; vector errors; keyword no API</td><td class="src">service/brain.go · Search</td><td class="yes">✓</td></tr>
+        <tr><td>limit default 10 / max 50</td><td class="src">brain.go + store normalizeLimit</td><td class="yes">✓</td></tr>
+        <tr><td>DISTINCT ON (note_id), best chunk as snippet</td><td class="src">store/notes.go · SearchNotes</td><td class="yes">✓</td></tr>
+        <tr><td>chi router; /healthz open; bearer guards /v1 + /mcp</td><td class="src">api/server.go · NewRouter</td><td class="yes">✓</td></tr>
+        <tr><td>Streamable HTTP /mcp; --stdio mode</td><td class="src">mcpserver/server.go; main.go</td><td class="yes">✓</td></tr>
+        <tr><td>recall always hybrid; /v1/search exposes mode=</td><td class="src">tools.go recallHandler; api/search.go</td><td class="yes">✓</td></tr>
+        <tr><td>list_tags aggregates across memories + notes</td><td class="src">store/tags.go · UNION ALL</td><td class="yes">✓</td></tr>
+        <tr><td>Embedded goose migrations run at startup</td><td class="src">db/migrate.go; main.go</td><td class="yes">✓</td></tr>
+        <tr><td>Defaults :8080, provider none⇒keyword, 1536 dims, t-e-3-small</td><td class="src">config/config.go</td><td class="yes">✓</td></tr>
+        <tr><td>FakeEmbedder in tests, never the network</td><td class="src">embed/embedder.go</td><td class="yes">✓</td></tr>
+        <tr><td>Note+chunks in one tx, committed before embedding</td><td class="src">store/notes.go · CreateNote (BeginFunc)</td><td class="yes">✓</td></tr>
+        <tr><td>update_note deletes + recreates all chunks in one tx</td><td class="src">store/notes.go · UpdateNote</td><td class="yes">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub">Drift &amp; under-specification</h3>
+
+  <div class="drift hard"><h4>docs/architecture.md doesn't exist <span class="pill">factual miss</span></h4>
+    <p>The artifact footer says "full Mermaid version committed at <code>docs/architecture.md</code>." There is no
+      <code>docs/</code> directory in <code>master</code> @ <code>0bfdac9</code>. The only concrete inaccuracy —
+      likely aspirational, or living on an unmerged branch.</p></div>
+
+  <div class="drift"><h4>Backoff is driven by a timestamp too <span class="pill">enrichment</span></h4>
+    <p>The data-model tables list <code>embed_attempts</code> but omit <code>embed_last_attempt_at</code> (timestamptz,
+      migration 00003). The eligibility clause needs both: <code>1 min · 2^LEAST(attempts,6)</code> since the last attempt,
+      capped at 1 h. Sequence from attempts=2: 4, 8, 16, 32, 64→60(cap) min.</p></div>
+
+  <div class="drift"><h4>"10s timeout" is the context deadline, not the whole story <span class="pill">nuance</span></h4>
+    <p><code>embedTimeout = 10s</code> is a per-call <code>context.WithTimeout</code>. The OpenAI client also carries its own
+      30s <code>http.Client</code> timeout. The 10s context cancels first, so the effective bound is 10s — the artifact is
+      functionally right, just under-specified.</p></div>
+
+  <div class="drift"><h4>Provider enum is <code>openai_compatible</code> | <code>none</code> <span class="pill">clarification</span></h4>
+    <p>"Default OpenRouter" refers to the default <em>base URL</em> (<code>EMBEDDING_BASE_URL</code>), not the provider name.
+      The <code>EMBEDDING_PROVIDER</code> value is literally <code>openai_compatible</code> or <code>none</code>.</p></div>
+
+  <div class="drift"><h4>The search asymmetry is even sharper than stated <span class="pill">enrichment</span></h4>
+    <p>The <code>notes</code> table has no <code>search</code> tsvector, no <code>embedding</code>, and no stored
+      <code>embed_status</code> — all three live on (or are derived from) <code>note_chunks</code>. Status is computed on read
+      via <code>bool_or</code>. So <code>notes</code> is a pure retrieval-only document store with only a <code>tags</code> index.</p></div>
+
+  <div class="drift"><h4>The drift guard auto-adapts dimensions on first boot <span class="pill">enrichment</span></h4>
+    <p><code>EnsureEmbeddingMeta</code> adopts the configured dims on an empty meta row — <code>ALTER</code>-ing the
+      <code>vector(N)</code> columns and rebuilding both HNSW indexes if they differ from the migration's 1536. Only on
+      <em>later</em> boots is a mismatch a hard error, and its message embeds the exact remediation SQL.</p></div>
+
+  <div class="drift"><h4>Retry ordering prevents structural starvation <span class="pill">enrichment</span></h4>
+    <p><code>ListPendingEmbeds</code> does a per-leg <code>LIMIT</code>, then <code>UNION ALL</code>, then a global
+      <code>ORDER BY embed_attempts ASC, embed_last_attempt_at ASC NULLS FIRST</code> — deliberately, so memories can't
+      structurally starve note chunks. Fresh/low-attempt rows always flow first.</p></div>
+
+  <div class="drift"><h4>Guarantees the artifact doesn't mention <span class="pill">hardening</span></h4>
+    <p>Errors are never echoed to clients — <code>/healthz</code> and <code>writeServiceError</code> sanitize DB/provider
+      detail and log the real error server-side. Also: 1 MiB request-body cap, <code>BRAIN_API_KEY</code> ≥ 16 chars,
+      English-only tsvector (keyword ranking weak for non-English; vector unaffected), and PATCH can't null a field.</p></div>
+
+  <div class="drift"><h4>The retry loop runs in stdio mode too <span class="pill">enrichment</span></h4>
+    <p><code>go brain.RunEmbedRetryLoop(...)</code> is started before the <code>--stdio</code> branch in <code>main.go</code>,
+      so the background embedding safety net is active in both HTTP and stdio deployments.</p></div>
+
+  <footer>Verified against <code>tmatti/athena</code> · <code>master</code> @ <code>0bfdac90</code> ·
+    source artifact <code>54dd644b</code>. Diagrams rebuilt as native HTML/CSS — no Mermaid dependency.</footer>
+</section>
+
+</main>
+</div>
+
+<script>
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
+  var sidebar = document.getElementById('sidebar');
+  var scrim = document.getElementById('scrim');
+
+  function show(name, push) {
+    tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.view === name); });
+    views.forEach(function (v) { v.classList.toggle('active', v.dataset.view === name); });
+    if (push !== false) history.replaceState(null, '', '#' + name);
+    document.querySelector('main').scrollTo(0, 0);
+    window.scrollTo(0, 0);
+    closeNav();
+  }
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { show(t.dataset.view); });
+  });
+
+  function openNav() { sidebar.classList.add('open'); scrim.classList.add('show'); }
+  function closeNav() { sidebar.classList.remove('open'); scrim.classList.remove('show'); }
+  document.getElementById('menubtn').addEventListener('click', openNav);
+  scrim.addEventListener('click', closeNav);
+
+  // Theme toggle
+  var root = document.documentElement;
+  function syncThemeLabel() {
+    var dark = root.getAttribute('data-theme') === 'dark';
+    document.getElementById('themeicon').textContent = dark ? '☾' : '☀';
+    document.getElementById('themelabel').textContent = dark ? 'dark mode' : 'light mode';
+  }
+  document.getElementById('themebtn').addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('athena-theme', next); } catch (e) {}
+    syncThemeLabel();
+  });
+  syncThemeLabel();
+
+  // Deep-link support
+  var initial = (location.hash || '').replace('#', '');
+  if (initial && tabs.some(function (t) { return t.dataset.view === initial; })) show(initial, false);
+</script>
+</body>
+</html>
