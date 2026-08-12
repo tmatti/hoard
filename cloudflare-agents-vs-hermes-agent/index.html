@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloudflare Agents vs Hermes Agent</title>
+<script>
+(function(){var t=localStorage.getItem("theme");if(!t){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";}document.documentElement.setAttribute("data-theme",t);})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg: oklch(0.96 0.012 90);
+  --bg-panel: oklch(0.985 0.008 95);
+  --bg-inset: oklch(0.93 0.014 88);
+  --text: oklch(0.28 0.02 60);
+  --text-dim: oklch(0.46 0.02 60);
+  --accent: oklch(0.45 0.09 150);
+  --accent-soft: oklch(0.45 0.09 150 / 0.12);
+  --warm: oklch(0.45 0.06 60);
+  --warm-soft: oklch(0.45 0.06 60 / 0.12);
+  --border: oklch(0.85 0.015 85);
+  --cf: oklch(0.55 0.11 65);
+  --hm: oklch(0.5 0.1 155);
+}
+[data-theme="dark"]{
+  --bg: oklch(0.19 0.015 80);
+  --bg-panel: oklch(0.23 0.016 85);
+  --bg-inset: oklch(0.16 0.014 80);
+  --text: oklch(0.88 0.015 95);
+  --text-dim: oklch(0.66 0.02 90);
+  --accent: oklch(0.72 0.11 150);
+  --accent-soft: oklch(0.72 0.11 150 / 0.14);
+  --warm: oklch(0.74 0.07 70);
+  --warm-soft: oklch(0.74 0.07 70 / 0.14);
+  --border: oklch(0.32 0.02 85);
+  --cf: oklch(0.75 0.12 65);
+  --hm: oklch(0.75 0.12 155);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  background:var(--bg);color:var(--text);
+  font-size:14px;line-height:1.65;
+  min-height:100vh;
+}
+a{color:var(--accent)}
+.layout{display:flex;min-height:100vh}
+nav{
+  width:260px;flex-shrink:0;background:var(--bg-inset);
+  border-right:1px solid var(--border);
+  padding:1.5rem 0;position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.brand{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+.brand h1{font-size:0.95rem;font-weight:700;line-height:1.4}
+.brand .path{color:var(--text-dim);font-size:0.75rem;margin-top:0.35rem}
+.brand .path b{color:var(--warm);font-weight:500}
+.navgroup{padding:0.5rem 0.75rem 0;color:var(--text-dim);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em}
+nav button.tab{
+  display:block;width:100%;text-align:left;background:none;border:none;
+  font:inherit;color:var(--text-dim);cursor:pointer;
+  padding:0.45rem 1.25rem;border-left:3px solid transparent;font-size:0.82rem;
+}
+nav button.tab:hover{color:var(--text);background:var(--accent-soft)}
+nav button.tab.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:500}
+nav button.tab .p{color:var(--warm);margin-right:0.4rem}
+.theme-toggle{
+  margin:1.25rem;padding:0.4rem 0.8rem;background:none;
+  border:1px solid var(--border);border-radius:6px;color:var(--text-dim);
+  font:inherit;font-size:0.75rem;cursor:pointer;
+}
+.theme-toggle:hover{color:var(--text);border-color:var(--accent)}
+main{flex:1;padding:2.5rem 3rem;max-width:1080px;min-width:0}
+section.panel{display:none}
+section.panel.active{display:block;animation:fade .18s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+h2{font-size:1.35rem;margin-bottom:0.4rem}
+h2 .p{color:var(--warm);font-weight:400}
+h3{font-size:1rem;margin:1.75rem 0 0.6rem;color:var(--accent)}
+.sub{color:var(--text-dim);margin-bottom:1.5rem;font-size:0.85rem}
+p{margin-bottom:0.9rem}
+ul{margin:0 0 1rem 1.3rem}
+li{margin-bottom:0.45rem}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin:1.25rem 0}
+.card{
+  background:var(--bg-panel);border:1px solid var(--border);
+  border-radius:10px;padding:1.25rem 1.4rem;
+}
+.card h4{font-size:0.9rem;margin-bottom:0.7rem;padding-bottom:0.5rem;border-bottom:1px solid var(--border)}
+.card.cf h4{color:var(--cf)}
+.card.hm h4{color:var(--hm)}
+.card ul{margin-left:1.1rem;margin-bottom:0}
+.card li{font-size:0.82rem;margin-bottom:0.5rem}
+.bottom{
+  background:var(--warm-soft);border-left:3px solid var(--warm);
+  border-radius:0 8px 8px 0;padding:0.9rem 1.2rem;margin:1.5rem 0;font-size:0.85rem;
+}
+.bottom b{color:var(--warm)}
+table{width:100%;border-collapse:collapse;margin:1.25rem 0;font-size:0.8rem}
+th,td{text-align:left;padding:0.6rem 0.75rem;border:1px solid var(--border);vertical-align:top}
+th{background:var(--bg-inset);font-weight:700}
+td:first-child{color:var(--text-dim);white-space:nowrap}
+.tag{display:inline-block;padding:0.1rem 0.5rem;border-radius:99px;font-size:0.7rem;margin:0 0.2rem 0.2rem 0}
+.tag.cf{background:var(--warm-soft);color:var(--cf)}
+.tag.hm{background:var(--accent-soft);color:var(--hm)}
+code{background:var(--bg-inset);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.85em;color:var(--warm)}
+.menu-btn{display:none}
+footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--text-dim);font-size:0.72rem}
+@media (max-width:900px){
+  nav{position:fixed;left:-280px;transition:left .2s ease;z-index:20;box-shadow:none}
+  nav.open{left:0;box-shadow:0 0 40px oklch(0 0 0/0.4)}
+  .menu-btn{
+    display:block;position:fixed;top:0.9rem;left:0.9rem;z-index:30;
+    background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;
+    color:var(--text);font:inherit;padding:0.35rem 0.7rem;cursor:pointer;
+  }
+  main{padding:4rem 1.25rem 2rem}
+  .duo{grid-template-columns:1fr}
+  .tablewrap{overflow-x:auto}
+}
+.tablewrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<button class="menu-btn" id="menuBtn">≡ tabs</button>
+<div class="layout">
+<nav id="nav">
+  <div class="brand">
+    <h1>Agents, two ways</h1>
+    <div class="path"><b>~/hoard/</b>cloudflare-agents-vs-hermes-agent</div>
+  </div>
+  <div class="navgroup">$ report</div>
+  <button class="tab active" data-panel="overview"><span class="p">$</span>overview</button>
+  <div class="navgroup">$ dimensions</div>
+  <button class="tab" data-panel="state"><span class="p">1</span>state &amp; memory</button>
+  <button class="tab" data-panel="hosting"><span class="p">2</span>hosting &amp; deploy</button>
+  <button class="tab" data-panel="scaling"><span class="p">3</span>scaling</button>
+  <button class="tab" data-panel="comms"><span class="p">4</span>real-time comms</button>
+  <button class="tab" data-panel="durability"><span class="p">5</span>crash recovery</button>
+  <button class="tab" data-panel="models"><span class="p">6</span>model providers</button>
+  <button class="tab" data-panel="tooling"><span class="p">7</span>tooling</button>
+  <button class="tab" data-panel="runtime"><span class="p">8</span>language &amp; runtime</button>
+  <button class="tab" data-panel="portability"><span class="p">9</span>portability</button>
+  <button class="tab" data-panel="pricing"><span class="p">10</span>pricing</button>
+  <div class="navgroup">$ conclusions</div>
+  <button class="tab" data-panel="summary"><span class="p">#</span>summary table</button>
+  <button class="tab" data-panel="verdict"><span class="p">#</span>verdict</button>
+  <button class="theme-toggle" id="themeToggle">toggle theme</button>
+</nav>
+<main>
+
+<section class="panel active" id="overview">
+  <h2><span class="p">~/</span>Cloudflare Agents vs Hermes Agent</h2>
+  <p class="sub">Researched 2026-08-11 · Hermes facts from the GitHub repo + official docs · Cloudflare claims spot-checked against developers.cloudflare.com</p>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li><b>What it is:</b> a managed developer platform + TypeScript SDK. Each agent session is a Durable Object with embedded SQLite, running on Cloudflare's global edge.</li>
+        <li><b>Built for:</b> developers shipping agent <i>products</i> — many users, many concurrent sessions, zero infrastructure to run.</li>
+        <li><b>Personality:</b> infrastructure. You write the agent's brain; the platform supplies state, transport, scale, and durability.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent (Nous Research)</h4>
+      <ul>
+        <li><b>What it is:</b> a finished, MIT-licensed personal agent in Python (~229k stars). CLI/TUI, desktop app, and a messaging gateway with 25+ platform adapters.</li>
+        <li><b>Built for:</b> one human (or a small team) who wants a capable assistant on their own hardware that learns over time.</li>
+        <li><b>Personality:</b> application. Install it, pick a model, and it works — self-improving skills, persistent memory, session search.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Headline:</b> these mostly solve different problems. Cloudflare Agents is a substrate for building multi-tenant agent products; Hermes is a self-hosted personal agent you adopt rather than build. They genuinely compete only in the narrow "one agent that talks to me over chat and does tasks" case.</div>
+</section>
+
+<section class="panel" id="state">
+  <h2><span class="p">1/</span>State &amp; memory</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li>Each agent session = a <b>Durable Object</b> with its own embedded SQLite: <code>this.state</code> for structured state, <code>this.sql</code> for queries.</li>
+        <li>No external database needed; state is co-located with compute and survives requests, disconnects, and redeploys.</li>
+        <li>Per-session isolation is automatic — a million users means a million tiny databases.</li>
+        <li>Semantic/long-term memory (embeddings, retrieval) via AI Search / Vectorize — a design exercise left to you.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li>Local files under <code>~/.hermes</code>: <code>MEMORY.md</code> (2,200-char agent notes) + <code>USER.md</code> (1,375-char user profile) injected into every system prompt.</li>
+        <li>All sessions persisted to SQLite (<code>state.db</code>) with <b>FTS5 full-text search</b> — the agent can recall conversations from weeks ago via <code>session_search</code>.</li>
+        <li>Opinionated <b>learning loop</b>: agent-curated memory with consolidation, autonomous skill creation, Honcho user modeling. Memory is a product feature, not a primitive.</li>
+        <li>No external services required; optional external memory providers for multi-instance sync.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> both are batteries-included (embedded SQLite, no Redis/Postgres). Cloudflare gives you a superior <i>primitive</i> — isolated per-session databases at any scale. Hermes gives you a superior <i>finished memory system</i> — curated memory, cross-session recall, and user modeling working out of the box, but scoped to one user per profile.</div>
+</section>
+
+<section class="panel" id="hosting">
+  <h2><span class="p">2/</span>Hosting &amp; deployment</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li>Runs only on <b>Cloudflare's managed edge network</b>. No servers, containers, or VMs to operate.</li>
+        <li>Local dev → production is <code>wrangler deploy</code>; the starter is ~3 npm commands with no API keys.</li>
+        <li>Ops burden ≈ zero: no patching, no capacity planning, observability built in.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>Self-hosted anywhere</b>: laptop, $5 VPS, Docker, GPU cluster, native Windows, WSL2, even Android/Termux. One-line installer.</li>
+        <li>"Production" = a long-running gateway process on a box you keep alive (systemd/Docker is on you).</li>
+        <li>Tool <i>execution</i> can be pushed to seven backends: local, Docker, SSH, Singularity, <b>Modal, Daytona, Vercel Sandbox</b> — the last group hibernates when idle for near-zero idle cost.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> Cloudflare wins on ops-free production for a service. Hermes wins on sovereignty and reach — it runs on hardware Cloudflare can't touch (your laptop, your GPU box, your phone), and you own every byte. Note the asymmetry: Hermes's serverless story is for its <i>tool sandbox</i>, while the agent process itself still needs a home.</div>
+</section>
+
+<section class="panel" id="scaling">
+  <h2><span class="p">3/</span>Scaling</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li>Automatic, to <b>tens of millions of agent instances</b> — each session is an independently scheduled Durable Object.</li>
+        <li>No knobs: you never think about processes, load balancing, or placement.</li>
+        <li>This is the platform's core design point — multi-tenancy is free.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>Single synchronous agent loop per profile</b>; one gateway process serves all your chat platforms.</li>
+        <li>Concurrency within a task via spawned subagents (<code>delegate_task</code>); more users = more profiles/processes you manage yourself.</li>
+        <li>No autoscaling and no multi-tenant story — by design. It's one agent per human.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> not comparable because the goals differ. If "scale" means thousands of customers, Hermes isn't a candidate. If it means one agent working hard for you, Hermes's subagent parallelism is adequate and Cloudflare's scale is irrelevant.</div>
+</section>
+
+<section class="panel" id="comms">
+  <h2><span class="p">4/</span>Real-time communication</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li>Native <b>WebSockets</b> with state sync — first-class for building custom real-time UIs.</li>
+        <li>Channels: chat (streaming), <b>voice</b>, email, Slack, webhooks.</li>
+        <li>Channels are SDK building blocks — you assemble the product experience around them.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>25+ chat platforms out of the box</b>: Telegram, Discord, Slack, WhatsApp, Signal, SMS, Email, iMessage (BlueBubbles), Teams, Matrix, Mattermost, IRC, LINE, QQ, WeChat, DingTalk, Feishu, Google Chat, SimpleX, ntfy, Home Assistant, webhooks.</li>
+        <li>Streaming message edits on the major platforms; <b>voice-memo transcription and TTS replies</b>; cross-platform conversation continuity (start on CLI, continue on Telegram).</li>
+        <li>WebSocket usage is internal (desktop app ↔ gateway) — there's no SDK for embedding a chat UI into <i>your</i> product.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> Hermes has the broadest consumer-messaging matrix of any agent project — far beyond Cloudflare's list — but as end-user features. Cloudflare's channels are fewer but exist as programmable primitives for building your own product, which Hermes doesn't attempt.</div>
+</section>
+
+<section class="panel" id="durability">
+  <h2><span class="p">5/</span>Crash recovery &amp; durability</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li><b>Durable execution via fibers</b>: agents can resume <i>mid-task</i> after a crash, eviction, or redeploy ("recoverable execution").</li>
+        <li>State always durable in the Durable Object; no session reconstruction.</li>
+        <li>Scheduling (cron, delayed, recurring) survives restarts as a platform feature.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li>Sessions persist in SQLite with atomic writes and lineage tracking — <b>conversation state survives</b> any crash or restart.</li>
+        <li>A <b>delivery ledger</b> durably records final responses and redelivers after gateway crashes, so messages aren't lost.</li>
+        <li>But no durable-execution concept: a crash mid-task kills the in-flight turn. You resume the <i>conversation</i> with full context, not the interrupted <i>step</i>.</li>
+        <li>Process supervision (systemd restart, Docker restart policy) is your job.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> a real Cloudflare advantage. Both survive crashes without losing state; only Cloudflare resumes interrupted work automatically. For long multi-step autonomous tasks, that's a meaningful reliability gap Hermes covers socially (you say "keep going") rather than mechanically.</div>
+</section>
+
+<section class="panel" id="models">
+  <h2><span class="p">6/</span>Model provider flexibility</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li>Any provider over HTTP: OpenAI, Anthropic, Gemini, etc. (Vercel AI SDK-style integration).</li>
+        <li><b>Workers AI built in</b> — open-source LLMs, embeddings, image models at the edge, no API key to start.</li>
+        <li>Cannot run models on your own GPUs adjacent to the agent — the runtime is Cloudflare's, so local inference means calling out to a server you host elsewhere.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>100+ providers</b>: OpenAI, Anthropic, Gemini/Vertex, xAI, DeepSeek, Qwen, Bedrock, Azure, Copilot, Groq, Together, and any OpenAI-compatible endpoint.</li>
+        <li>First-class <b>local inference</b>: Ollama, vLLM, SGLang, llama.cpp, LM Studio — fully offline/air-gapped operation is possible.</li>
+        <li>Switch with <code>/model</code> mid-conversation, no code changes. Nous Portal offers 300+ models under one subscription.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> both are provider-agnostic; the built-in options differ. Workers AI = zero-setup managed inference. Hermes = genuinely local models on your own metal, which Cloudflare structurally can't offer. If local/private inference matters, Hermes wins outright.</div>
+</section>
+
+<section class="panel" id="tooling">
+  <h2><span class="p">7/</span>Tooling</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li><b>Browser</b> (headless), <b>Sandbox</b> (isolated code exec), <b>AI Search</b> (indexing + retrieval), <b>MCP server hosting</b>, <b>Payments</b>.</li>
+        <li><code>@cloudflare/computer</code> (preview): per-agent filesystem + shell.</li>
+        <li>Scheduling and observability built into the Agent class.</li>
+        <li>These are platform services — metered, managed, and composable; business tools (email triage, docs) are yours to build.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>40+ tools shipped</b>: web search/extract, browser automation (navigate/snapshot/vision), terminal + background processes, file read/patch, code execution, image gen, TTS, transcription, vision, cron, todo, subagent delegation, Home Assistant.</li>
+        <li><b>MCP client</b> — connect any MCP server for more.</li>
+        <li><b>Skills system</b> (agentskills.io standard): reusable procedures the agent writes and improves itself; community Skills Hub.</li>
+        <li>Payments: nothing built in. MCP hosting: it consumes MCP servers rather than hosting them for others.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> comparable breadth, different shape. Cloudflare's tools are managed infrastructure services you compose into a product (incl. payments and MCP <i>hosting</i>). Hermes's tools are a working assistant's toolbelt, already wired up — plus the self-authored skills loop, which has no Cloudflare equivalent.</div>
+</section>
+
+<section class="panel" id="runtime">
+  <h2><span class="p">8/</span>Language &amp; runtime</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li><b>TypeScript/JavaScript</b> on the Workers runtime (V8 isolates).</li>
+        <li>Not Node.js — most npm packages work, but native modules and arbitrary binaries don't; heavier work goes through Sandbox/containers.</li>
+        <li>You extend by subclassing <code>Agent</code>.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>Python 3.11</b> application (agent core + gateway); Electron/TypeScript desktop app; Tauri installer.</li>
+        <li>Full OS underneath: any binary, any Python package, ffmpeg, GPUs — no runtime restrictions.</li>
+        <li>You extend via skills, MCP servers, and plugins more than by importing it as a library.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> pick your ecosystem. TS teams building products will feel at home on Workers; Python people (and anyone needing arbitrary native tooling) get more freedom in Hermes's full-OS world.</div>
+</section>
+
+<section class="panel" id="portability">
+  <h2><span class="p">9/</span>Portability &amp; lock-in</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li>The SDK is open source, but the load-bearing primitives — Durable Objects, fibers, Workers AI, AI Search, edge scheduling — <b>exist only on Cloudflare</b>.</li>
+        <li>Migrating off means re-architecting state, durability, and transport, not just redeploying.</li>
+        <li>Mitigation: keep business logic provider-agnostic; accept the platform coupling for what it buys you.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>MIT-licensed, zero platform dependency.</b> Moving = copy <code>~/.hermes</code> (files + SQLite) to another box.</li>
+        <li>Provider-agnostic by design; even the Nous Portal subscription is optional (bring your own keys per tool).</li>
+        <li>Real lock-in risk is different: you adopt a large, fast-moving <i>application</i> whose architecture you don't control — heavy customization means tracking upstream.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> clearest contrast in the whole comparison. Cloudflare trades portability for a managed substrate; Hermes is about as portable as software gets. Neither is wrong — but know which trade you're making before you build on the primitives.</div>
+</section>
+
+<section class="panel" id="pricing">
+  <h2><span class="p">10/</span>Pricing &amp; free tier</h2>
+  <div class="duo">
+    <div class="card cf"><h4>Cloudflare Agents</h4>
+      <ul>
+        <li><b>Durable Objects are on the Workers Free plan</b> — real experimentation at $0.</li>
+        <li>Production: Workers Paid (~$5/mo base) + usage-based metering across requests, DO duration/storage, Workers AI, Browser, Sandbox, AI Search.</li>
+        <li>Scales smoothly from hobby to product; many metered line items to understand at scale.</li>
+      </ul>
+    </div>
+    <div class="card hm"><h4>Hermes Agent</h4>
+      <ul>
+        <li><b>Software is free (MIT).</b> You pay for compute you already have (laptop: $0; VPS: ~$5/mo) + model API usage.</li>
+        <li>Fully $0 path exists: local hardware + Ollama.</li>
+        <li>Optional Nous Portal: free tier (free-model catalog, 50 RPM / 500K TPM) or Plus $20 / Super $100 / Ultra $200 per month for 300+ models + the hosted Tool Gateway.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom"><b>Bottom line:</b> both have honest free tiers. For personal use, costs are similar and dominated by model tokens either way. At product scale the comparison collapses — Cloudflare meters per usage; Hermes was never priced for serving customers.</div>
+</section>
+
+<section class="panel" id="summary">
+  <h2><span class="p">#/</span>Summary table</h2>
+  <div class="tablewrap">
+  <table>
+    <tr><th>Dimension</th><th>Cloudflare Agents</th><th>Hermes Agent</th></tr>
+    <tr><td>Category</td><td>Managed platform + SDK for building agent products</td><td>Self-hosted personal agent application</td></tr>
+    <tr><td>State &amp; memory</td><td>SQLite-in-Durable-Object per session; DIY long-term memory</td><td>Local SQLite + memory files; curated memory, FTS5 recall, user modeling built in</td></tr>
+    <tr><td>Hosting</td><td>Cloudflare edge only; zero ops</td><td>Any hardware you control; ops are yours</td></tr>
+    <tr><td>Scaling</td><td>Automatic, tens of millions of sessions</td><td>One process per profile; subagents for task parallelism</td></tr>
+    <tr><td>Real-time comms</td><td>WebSockets + chat/voice/email/Slack/webhooks as SDK primitives</td><td>25+ chat platforms ready-made; streaming + voice; no embeddable SDK</td></tr>
+    <tr><td>Durability</td><td>Fibers resume mid-task after crashes</td><td>State/messages survive (delivery ledger); interrupted turn restarts</td></tr>
+    <tr><td>Models</td><td>Any API provider; Workers AI built in; no local inference</td><td>100+ providers incl. fully local (Ollama, vLLM, llama.cpp)</td></tr>
+    <tr><td>Tooling</td><td>Browser, Sandbox, AI Search, MCP hosting, Payments, @cloudflare/computer</td><td>40+ wired-up tools, MCP client, self-improving skills system</td></tr>
+    <tr><td>Language</td><td>TypeScript/JS on Workers (V8 isolates)</td><td>Python 3.11 on a full OS</td></tr>
+    <tr><td>Portability</td><td>Deep platform coupling (DOs, fibers)</td><td>MIT; copy a directory to move; provider-agnostic</td></tr>
+    <tr><td>Pricing</td><td>Free tier incl. DOs; usage-metered beyond</td><td>Free software + your compute + tokens; Portal $0/$20/$100/$200 optional</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="panel" id="verdict">
+  <h2><span class="p">#/</span>Verdict</h2>
+  <h3>$ choose cloudflare-agents if…</h3>
+  <ul>
+    <li>You're <b>building a product</b> — agents serving many users, each needing isolated durable state.</li>
+    <li>You want zero infrastructure and automatic scale, and durable mid-task execution matters (long autonomous workflows).</li>
+    <li>Your team lives in TypeScript, and you're comfortable coupling to Cloudflare in exchange for the managed substrate.</li>
+    <li>You need to host MCP servers or take payments as part of the agent.</li>
+  </ul>
+  <h3>$ choose hermes if…</h3>
+  <ul>
+    <li>You want <b>a working assistant today</b> for yourself or a small team — not a framework to build one.</li>
+    <li>Data sovereignty or local models matter: your hardware, your files, optionally fully offline.</li>
+    <li>You want the agent inside WhatsApp/Signal/iMessage/Telegram/etc. without writing adapters.</li>
+    <li>The self-improving loop appeals: skills it authors, memory it curates, a user model that deepens.</li>
+    <li>You want zero platform lock-in and MIT licensing.</li>
+  </ul>
+  <h3>$ are they competitors?</h3>
+  <p>Mostly no. Cloudflare Agents competes with LangGraph Platform, Temporal-style durable execution, and Fly/Modal-hosted agent stacks — <i>infrastructure for people shipping agents</i>. Hermes competes with OpenClaw (it's the direct successor lineage — there's a first-class <code>hermes claw migrate</code>), open-source personal assistants, and arguably ChatGPT/Claude apps themselves — <i>the agent, finished</i>.</p>
+  <p>They intersect only for a solo developer wanting "an agent that messages me and does tasks": adopt Hermes and you're done in an afternoon; build on Cloudflare and you own a smaller, more durable, infinitely scalable thing you wrote yourself. That's a build-vs-adopt decision, not a platform bake-off.</p>
+  <footer>Sources: github.com/NousResearch/hermes-agent · hermes-agent.nousresearch.com/docs · developers.cloudflare.com/agents · portal.nousresearch.com — researched 2026-08-11</footer>
+</section>
+
+</main>
+</div>
+<script>
+const tabs=document.querySelectorAll("nav .tab"),panels=document.querySelectorAll("section.panel");
+tabs.forEach(t=>t.addEventListener("click",()=>{
+  tabs.forEach(x=>x.classList.remove("active"));panels.forEach(p=>p.classList.remove("active"));
+  t.classList.add("active");document.getElementById(t.dataset.panel).classList.add("active");
+  document.getElementById("nav").classList.remove("open");window.scrollTo(0,0);
+}));
+document.getElementById("themeToggle").addEventListener("click",()=>{
+  const h=document.documentElement,next=h.getAttribute("data-theme")==="dark"?"light":"dark";
+  h.setAttribute("data-theme",next);localStorage.setItem("theme",next);
+});
+document.getElementById("menuBtn").addEventListener("click",()=>document.getElementById("nav").classList.toggle("open"));
+</script>
+</body>
+</html>
