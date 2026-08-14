@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloudflare Durable Objects: A Beginner's Guide</title>
+<script>
+  // No-flash theme init: runs before first paint.
+  (function () {
+    var stored = localStorage.getItem("theme");
+    var dark = stored ? stored === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (dark) document.documentElement.setAttribute("data-theme", "dark");
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: oklch(0.955 0.018 92);
+    --bg-deep: oklch(0.925 0.022 88);
+    --panel: oklch(0.975 0.012 95);
+    --text: oklch(0.28 0.025 65);
+    --muted: oklch(0.47 0.035 75);
+    --accent: oklch(0.46 0.095 150);
+    --accent-strong: oklch(0.38 0.10 150);
+    --accent-soft: oklch(0.46 0.095 150 / 0.10);
+    --warm: oklch(0.46 0.075 60);
+    --warm-soft: oklch(0.46 0.075 60 / 0.10);
+    --border: oklch(0.85 0.025 85);
+    --code-bg: oklch(0.925 0.016 90);
+    --shadow: 0 1px 3px oklch(0.3 0.03 70 / 0.10);
+  }
+  [data-theme="dark"] {
+    --bg: oklch(0.185 0.014 78);
+    --bg-deep: oklch(0.155 0.012 78);
+    --panel: oklch(0.225 0.016 80);
+    --text: oklch(0.87 0.02 92);
+    --muted: oklch(0.62 0.03 88);
+    --accent: oklch(0.73 0.10 150);
+    --accent-strong: oklch(0.80 0.11 150);
+    --accent-soft: oklch(0.73 0.10 150 / 0.13);
+    --warm: oklch(0.74 0.08 70);
+    --warm-soft: oklch(0.74 0.08 70 / 0.13);
+    --border: oklch(0.30 0.018 80);
+    --code-bg: oklch(0.15 0.011 78);
+    --shadow: 0 1px 3px oklch(0.05 0.01 78 / 0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14.5px;
+    line-height: 1.65;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ---------- layout ---------- */
+  .layout { display: flex; min-height: 100vh; }
+  nav {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--bg-deep);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0.9rem 2rem;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 2.5rem clamp(1.2rem, 4vw, 3.5rem) 4rem;
+  }
+  .content { max-width: 820px; }
+
+  /* ---------- nav ---------- */
+  .brand {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0 0.5rem 1.2rem;
+    line-height: 1.5;
+  }
+  .brand .path { color: var(--accent); font-weight: 500; }
+  .brand .title { color: var(--text); font-weight: 700; font-size: 0.95rem; display: block; margin-top: 0.2rem; }
+  .tabs { list-style: none; margin: 0; padding: 0; flex: 1; }
+  .tabs li { margin: 1px 0; }
+  .tabs a {
+    display: block;
+    padding: 0.42rem 0.6rem;
+    border-radius: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.83rem;
+    transition: background 0.12s, color 0.12s;
+  }
+  .tabs a:hover { background: var(--accent-soft); color: var(--text); }
+  .tabs a.active {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-weight: 700;
+  }
+  .tabs a .n { color: var(--warm); font-weight: 400; margin-right: 0.45rem; font-size: 0.78rem; }
+  .tabs .sep {
+    margin: 0.9rem 0.6rem 0.4rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--warm);
+  }
+  .navfoot { margin-top: 1rem; padding: 0 0.5rem; }
+  #themeToggle {
+    font: inherit;
+    font-size: 0.78rem;
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #themeToggle:hover { color: var(--text); border-color: var(--accent); }
+
+  /* mobile drawer */
+  #menuBtn {
+    display: none;
+    position: fixed;
+    top: 0.8rem; left: 0.8rem;
+    z-index: 30;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.7rem;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 900px) {
+    #menuBtn { display: block; }
+    nav {
+      position: fixed;
+      z-index: 20;
+      left: 0; top: 0;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      box-shadow: none;
+    }
+    nav.open { transform: translateX(0); box-shadow: 4px 0 24px oklch(0.1 0.01 80 / 0.35); }
+    main { padding-top: 4rem; }
+  }
+
+  /* ---------- typography ---------- */
+  h1 {
+    font-size: 1.5rem;
+    line-height: 1.35;
+    margin: 0 0 0.4rem;
+  }
+  h1::before { content: "$ "; color: var(--accent); }
+  .subtitle { color: var(--muted); margin: 0 0 2rem; font-size: 0.9rem; }
+  h2 {
+    font-size: 1.08rem;
+    margin: 2.4rem 0 0.8rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent-strong);
+  }
+  h3 { font-size: 0.95rem; margin: 1.8rem 0 0.5rem; color: var(--warm); }
+  p { margin: 0.8rem 0; }
+  a { color: var(--accent); }
+  a:hover { color: var(--accent-strong); }
+  strong { font-weight: 700; }
+  ul, ol { padding-left: 1.4rem; margin: 0.8rem 0; }
+  li { margin: 0.35rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.08em 0.35em;
+    font-size: 0.88em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  .tok-kw { color: var(--accent); font-weight: 500; }
+  .tok-str { color: var(--warm); }
+  .tok-com { color: var(--muted); font-style: italic; }
+  .tok-num { color: var(--accent-strong); }
+
+  .filename {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: var(--warm-soft);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 0.25rem 0.8rem;
+    margin-bottom: -1rem;
+    position: relative;
+    top: 1px;
+  }
+  .filename::before { content: "~/"; color: var(--warm); }
+  .filename + pre { border-top-left-radius: 0; margin-top: 1rem; }
+
+  /* ---------- components ---------- */
+  section.tab { display: none; }
+  section.tab.active { display: block; animation: fadein 0.18s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 8px 8px 0;
+    padding: 0.7rem 1.1rem;
+    margin: 1.2rem 0;
+    font-size: 0.88rem;
+  }
+  .callout.warn { border-left-color: var(--warm); background: var(--warm-soft); }
+  .callout .label {
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--accent-strong);
+    margin-bottom: 0.25rem;
+  }
+  .callout.warn .label { color: var(--warm); }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.2rem 0;
+    font-size: 0.84rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th { background: var(--bg-deep); color: var(--accent-strong); font-weight: 700; }
+  tr:nth-child(even) td { background: var(--panel); }
+  .tablewrap { overflow-x: auto; }
+
+  .story {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.4rem 1.6rem;
+    margin: 1.4rem 0;
+    font-size: 1.02rem;
+    line-height: 1.85;
+  }
+
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin: 1.4rem 0;
+  }
+  .flow .st {
+    flex: 1 1 130px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.78rem;
+    text-align: center;
+  }
+  .flow .st b { display: block; color: var(--accent-strong); margin-bottom: 0.25rem; font-size: 0.84rem; }
+  .flow .arr { align-self: center; color: var(--warm); font-weight: 700; }
+
+  .pager {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3.5rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.82rem;
+  }
+  .pager a { text-decoration: none; }
+  .pager .next { margin-left: auto; text-align: right; }
+
+  .kbd-note { color: var(--muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<button id="menuBtn" aria-label="Toggle navigation">≡ menu</button>
+<div class="layout">
+<nav id="sidebar">
+  <p class="brand"><span class="path">~/hoard/durable-objects</span>
+    <span class="title">Durable Objects: A Beginner's Guide</span></p>
+  <ul class="tabs" id="tabList">
+    <li class="sep">start</li>
+    <li><a href="#overview" data-tab="overview"><span class="n">00</span>Start Here</a></li>
+    <li><a href="#eli5" data-tab="eli5"><span class="n">01</span>Explain Like I'm Five</a></li>
+    <li class="sep">for engineers</li>
+    <li><a href="#mental-model" data-tab="mental-model"><span class="n">02</span>The Mental Model</a></li>
+    <li><a href="#first-object" data-tab="first-object"><span class="n">03</span>Your First Object</a></li>
+    <li><a href="#storage" data-tab="storage"><span class="n">04</span>Storage API</a></li>
+    <li><a href="#alarms" data-tab="alarms"><span class="n">05</span>Alarms</a></li>
+    <li><a href="#websockets" data-tab="websockets"><span class="n">06</span>WebSockets</a></li>
+    <li><a href="#lifecycle" data-tab="lifecycle"><span class="n">07</span>Lifecycle &amp; Memory</a></li>
+    <li><a href="#patterns" data-tab="patterns"><span class="n">08</span>Patterns &amp; Pitfalls</a></li>
+    <li><a href="#pricing" data-tab="pricing"><span class="n">09</span>Pricing &amp; Limits</a></li>
+    <li><a href="#compare" data-tab="compare"><span class="n">10</span>DO vs KV vs D1</a></li>
+    <li><a href="#references" data-tab="references"><span class="n">11</span>References</a></li>
+  </ul>
+  <div class="navfoot">
+    <button id="themeToggle">theme: <span id="themeLabel">dark</span></button>
+  </div>
+</nav>
+
+<main><div class="content">
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-overview">
+  <h1>Cloudflare Durable Objects</h1>
+  <p class="subtitle">A beginner's guide — from "explain it to a five-year-old" to production patterns.</p>
+
+  <p><strong>Durable Objects</strong> (DOs) are Cloudflare's answer to a question serverless
+  platforms historically dodged: <em>where does state live?</em> A Durable Object is a tiny
+  server with a globally unique name, its own private database, and a guarantee that only
+  one copy of it exists in the world at any moment. You can have millions of them, they
+  cost nothing while asleep, and Cloudflare handles every part of their lifecycle.</p>
+
+  <p>They power real-time chat, multiplayer games, collaborative editors, rate limiters,
+  booking systems, per-user agents — anything where multiple clients need to agree on
+  one piece of state <em>right now</em>.</p>
+
+  <h2>How this guide is organized</h2>
+  <ul>
+    <li><strong>01 — Explain Like I'm Five</strong>: the whole idea in a bedtime-story analogy. Genuinely for anyone.</li>
+    <li><strong>02–07</strong>: the engineering track — mental model, a working first object, then the three
+        superpowers (storage, alarms, WebSockets) and the lifecycle rules that make them safe.</li>
+    <li><strong>08–10</strong>: judgment calls — patterns, pitfalls, pricing, and when to reach for
+        KV or D1 instead.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">tl;dr</span>
+    A Durable Object = <strong>one name → one single-threaded instance → one private, strongly
+    consistent SQLite database</strong>, running somewhere close to whoever talked to it first,
+    hibernating for free when idle. Everything else in this guide is a consequence of that sentence.
+  </div>
+
+  <h2>Prerequisites for the engineering sections</h2>
+  <p>You should be comfortable with JavaScript/TypeScript and have seen a basic
+  <a href="https://developers.cloudflare.com/workers/" target="_blank" rel="noopener">Cloudflare Worker</a>
+  before (an <code>export default { fetch }</code> handler). That's it — no distributed-systems
+  background required; the platform's whole pitch is that it deletes most of that homework.</p>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-eli5">
+  <h1>Explain Like I'm Five</h1>
+  <p class="subtitle">No computers in this section. Just clubhouses.</p>
+
+  <div class="story">
+    <p>Imagine the whole world is dotted with magical <strong>clubhouses</strong>. 🏡</p>
+    <p>Every clubhouse has a <strong>name on the door</strong> — like <em>"Treehouse #7"</em> or
+    <em>"Emma's Fort."</em> If anyone, anywhere on Earth, sends a letter to "Treehouse #7,"
+    it always arrives at the <strong>same</strong> clubhouse. There is only one Treehouse #7
+    in the whole world. No copies. No fakes.</p>
+    <p>Inside each clubhouse lives <strong>one caretaker</strong> with a big
+    <strong>notebook</strong>. 📓 When letters arrive, the caretaker reads them
+    <strong>one at a time</strong> — never two at once — and writes important things
+    down in the notebook. Because there's only one caretaker and one notebook, the
+    notebook never gets scribbled over or mixed up. It's always right.</p>
+    <p>When nobody has visited for a while, the caretaker <strong>takes a nap</strong>. 😴
+    Napping caretakers don't need any snacks (they're free!). But the notebook stays
+    safely on the shelf. The moment a new letter arrives, the caretaker wakes up,
+    checks the notebook, and remembers <em>everything</em>.</p>
+    <p>And here's the best part: if you need a new clubhouse, you don't have to build
+    one. You just send a letter to a name nobody has used yet — and <strong>poof</strong>,
+    a clubhouse with that name exists, with a fresh caretaker and an empty notebook.
+    You can make millions of them. ✨</p>
+  </div>
+
+  <p>That's a Durable Object:</p>
+  <div class="tablewrap"><table>
+    <tr><th>In the story</th><th>In real life</th></tr>
+    <tr><td>The clubhouse with a unique name</td><td>A Durable Object instance with a globally unique ID</td></tr>
+    <tr><td>Letters always reaching the same clubhouse</td><td>Requests from anywhere routing to the single live instance</td></tr>
+    <tr><td>One caretaker, reading one letter at a time</td><td>Single-threaded execution — no race conditions</td></tr>
+    <tr><td>The notebook</td><td>Private, durable SQLite storage attached to the object</td></tr>
+    <tr><td>Napping for free, waking with memories intact</td><td>Hibernation when idle (no charges), storage survives</td></tr>
+    <tr><td>New clubhouse appears when you use a new name</td><td>Objects are created implicitly on first access</td></tr>
+  </table></div>
+
+  <p class="kbd-note">Keep the caretaker in mind — the engineering sections reuse this picture,
+  because almost every rule about Durable Objects ("don't make one clubhouse do everything,"
+  "write things in the notebook before napping") falls out of it.</p>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-mental-model">
+  <h1>The Mental Model</h1>
+  <p class="subtitle">From here on, you're a professional engineer. Let's be precise.</p>
+
+  <p>A Durable Object is a special kind of Cloudflare Worker that combines
+  <strong>compute with co-located state</strong>. Formally, the platform gives you the
+  <a href="https://en.wikipedia.org/wiki/Actor_model" target="_blank" rel="noopener">actor model</a>
+  as a managed service. Each object is defined by a JavaScript class; each <em>instance</em> of
+  that class has:</p>
+
+  <ul>
+    <li><strong>A globally unique identity.</strong> Derive an ID from a name
+      (<code>getByName("room-42")</code>) or generate a random one. The same ID always routes
+      to the same instance, from any Cloudflare location on Earth. This is what makes a DO a
+      <em>point of coordination</em>: two users on different continents who address
+      <code>"room-42"</code> are talking to the same running object.</li>
+    <li><strong>Single-threaded execution.</strong> One instance processes one event at a time.
+      Combined with the runtime's input/output gates (more below), this eliminates the classic
+      read-modify-write race without you writing a single lock.</li>
+    <li><strong>Private, transactional, strongly consistent storage.</strong> Each instance owns
+      an embedded SQLite database (up to 10 GB) that lives <em>with</em> the object. Reads and
+      writes are local — microseconds, not network round-trips. No other object or Worker can
+      touch it.</li>
+    <li><strong>A managed lifecycle.</strong> Instances are created implicitly on first access,
+      live near where they were first requested, stay warm between requests, hibernate when idle,
+      and can be evicted and revived anywhere without you noticing (storage travels with identity).</li>
+  </ul>
+
+  <h2>The topology</h2>
+  <p>You never talk to a Durable Object directly from the internet. A regular (stateless)
+  Worker fronts it:</p>
+
+  <div class="flow">
+    <div class="st"><b>Client</b>browser / app, anywhere</div>
+    <div class="arr">→</div>
+    <div class="st"><b>Worker</b>stateless, runs in every Cloudflare PoP, picks the object by name</div>
+    <div class="arr">→</div>
+    <div class="st"><b>Durable Object</b>the single instance for that name, wherever it lives</div>
+    <div class="arr">⇄</div>
+    <div class="st"><b>SQLite</b>private storage attached to that instance</div>
+  </div>
+
+  <p>The Worker's job is routing and authentication; the object's job is state and
+  coordination. The key design consequence: <strong>you scale by having many small objects</strong>,
+  not one big one. One object per chat room, per document, per user, per game session, per
+  tenant. Millions of instances are normal and cheap; a single "god object" that everything
+  routes through is the canonical mistake — it serializes your whole app behind one thread
+  (one caretaker can only read letters so fast).</p>
+
+  <h2>Single-threaded, but not naive: gates</h2>
+  <p>"One event at a time" could be slow and could still be racy around <code>await</code>
+  points. The runtime solves both with two mechanisms you get for free:</p>
+  <ul>
+    <li><strong>Input gates</strong>: while your code awaits a <em>storage</em> operation, no new
+      event is delivered to the object — so state can't shift under you mid-handler. (Awaiting a
+      <code>fetch()</code> to the outside world does allow other events in; storage awaits are the
+      protected ones.)</li>
+    <li><strong>Output gates</strong>: when you write to storage <em>without</em> awaiting, outbound
+      messages (responses, WebSocket sends) are held until the write is confirmed durable. You get
+      write-behind performance with write-ahead safety — a reply can never escape describing state
+      that then fails to persist.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">the one-sentence contract</span>
+    Within a single Durable Object, you may write straight-line code that reads state, mutates it,
+    and responds — and treat it as atomic with respect to other requests. The platform makes that
+    safe; your job is just to shard your domain into enough objects.
+  </div>
+
+  <h2>What DOs are for (and not for)</h2>
+  <ul>
+    <li><strong>Great fits:</strong> real-time collaboration (docs, whiteboards), chat rooms,
+      multiplayer game state, WebSocket fan-out, per-user/per-tenant state and agents, rate
+      limiters and counters, distributed locks/leases, queues and batchers, booking/inventory
+      where correctness matters.</li>
+    <li><strong>Poor fits:</strong> static content and caches (use KV), one big relational
+      dataset queried every which way (use D1), blob storage (use R2), fire-and-forget
+      background jobs at scale (use Queues). Tab 10 has a fuller comparison.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-first-object">
+  <h1>Your First Object</h1>
+  <p class="subtitle">A counter you can deploy in five minutes.</p>
+
+  <p>Three ingredients: a class extending <code>DurableObject</code>, a Worker that routes to
+  it, and two stanzas of Wrangler config. Scaffold a Worker project first
+  (<code>npm create cloudflare@latest</code>) or drop these into an existing one.</p>
+
+  <h2>1. The code</h2>
+  <span class="filename">src/index.js</span>
+<pre><code class="lang-js">import { DurableObject } from "cloudflare:workers";
+
+export class Counter extends DurableObject {
+  // Public methods are callable over RPC from the Worker below.
+  async increment(by = 1) {
+    // this.ctx.storage is THIS instance's private storage.
+    let value = (await this.ctx.storage.get("value")) ?? 0;
+    value += by;
+    await this.ctx.storage.put("value", value);
+    return value;
+    // Single-threaded execution + input gates make this read-modify-write
+    // safe under any concurrency. No locks, no transactions to write.
+  }
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const name = url.searchParams.get("name") ?? "global";
+
+    // Name -> stub. Same name means same live instance, planet-wide.
+    const stub = env.COUNTER.getByName(name);
+
+    // Looks like a method call; is actually an RPC to the object.
+    const value = await stub.increment();
+    return new Response(`counter "${name}" = ${value}`);
+  },
+};
+</code></pre>
+
+  <h2>2. The config</h2>
+  <span class="filename">wrangler.jsonc</span>
+<pre><code class="lang-js">{
+  "name": "counter-demo",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+
+  // Expose the class to the Worker as env.COUNTER.
+  "durable_objects": {
+    "bindings": [
+      { "name": "COUNTER", "class_name": "Counter" }
+    ]
+  },
+
+  // Register the class with the SQLite storage backend.
+  // Each migration tag is applied once, in order, like schema migrations.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Counter"] }
+  ]
+}
+</code></pre>
+
+  <div class="callout">
+    <span class="label">always new_sqlite_classes</span>
+    Use <code>new_sqlite_classes</code>, not the older <code>new_classes</code>. SQLite-backed
+    objects are the recommended default, the only kind the free plan supports, and — as of
+    mid-2026 — the only kind new accounts can create at all. The legacy key-value backend
+    exists only for grandfathered namespaces. (Newer Wrangler also offers a declarative
+    <code>exports</code> field replacing <code>migrations</code>; every existing tutorial uses
+    <code>migrations</code>, and both work.)
+  </div>
+
+  <h2>3. Run it</h2>
+<pre><code class="lang-sh"># Local dev — Durable Objects work fully offline in miniflare:
+npx wrangler dev
+
+# curl 'http://localhost:8787/?name=demo'   -> counter "demo" = 1
+# curl 'http://localhost:8787/?name=demo'   -> counter "demo" = 2
+# curl 'http://localhost:8787/?name=other'  -> counter "other" = 1
+
+npx wrangler deploy
+</code></pre>
+
+  <p>Notice what you did <em>not</em> do: provision a database, pick a region, configure
+  replication, or handle a single race condition. <code>?name=demo</code> and
+  <code>?name=other</code> are two independent instances that came into existence because
+  you addressed them.</p>
+
+  <h2>Addressing, in full</h2>
+  <p><code>getByName()</code> is the modern shortcut. The underlying pieces, which you'll see
+  in older code and need for random IDs:</p>
+<pre><code class="lang-js">// Equivalent to getByName("demo"):
+const id = env.COUNTER.idFromName("demo");   // deterministic hash of the name
+const stub = env.COUNTER.get(id);
+
+// Random, unguessable identity — you store the hex string somewhere:
+const id2 = env.COUNTER.newUniqueId();
+const stub2 = env.COUNTER.get(id2);
+const hex = id2.toString();                  // later: idFromString(hex)
+</code></pre>
+  <p>Stubs also support <code>stub.fetch(request)</code> — the object handles it in a
+  <code>fetch()</code> method, useful for passing through HTTP or WebSocket upgrades. For
+  plain method calls, RPC (as above) is cleaner and type-safe with TypeScript
+  (<code>DurableObjectNamespace&lt;Counter&gt;</code> in your <code>Env</code>).</p>
+
+  <div class="callout warn">
+    <span class="label">gotcha</span>
+    Creating a stub is free and local — it does <em>not</em> contact the object. The instance
+    is created/woken only when you invoke something on the stub. Errors (including "this
+    object is overloaded") surface at call time, not at <code>getByName()</code> time.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-storage">
+  <h1>Storage API</h1>
+  <p class="subtitle">Every object carries its own SQLite database. Use it like a local variable that happens to be durable.</p>
+
+  <p>Storage is reached via <code>this.ctx.storage</code>. On SQLite-backed classes you get
+  three layers over the same database:</p>
+
+  <div class="tablewrap"><table>
+    <tr><th>Layer</th><th>Call</th><th>Use when</th></tr>
+    <tr><td>SQL</td><td><code>ctx.storage.sql.exec(query, ...binds)</code></td><td>Relational data, queries, aggregates — the main event</td></tr>
+    <tr><td>Key-value</td><td><code>ctx.storage.get/put/delete/list</code></td><td>Simple blobs and flags; also what older tutorials show</td></tr>
+    <tr><td>Alarms</td><td><code>ctx.storage.setAlarm/getAlarm/deleteAlarm</code></td><td>Scheduling — covered in tab 05</td></tr>
+  </table></div>
+
+  <h2>SQL</h2>
+<pre><code class="lang-js">import { DurableObject } from "cloudflare:workers";
+
+export class TodoList extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.sql = ctx.storage.sql;
+    // Runs on every wake-up (constructor re-runs after hibernation),
+    // so schema setup must be idempotent:
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS todos (
+      id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      done  INTEGER DEFAULT 0
+    )`);
+  }
+
+  add(title) {
+    this.sql.exec("INSERT INTO todos (title) VALUES (?)", title);
+    return this.list();
+  }
+
+  complete(id) {
+    this.sql.exec("UPDATE todos SET done = 1 WHERE id = ?", id);
+  }
+
+  list() {
+    return this.sql.exec("SELECT * FROM todos ORDER BY id").toArray();
+  }
+}
+</code></pre>
+
+  <p>Things worth internalizing:</p>
+  <ul>
+    <li><strong>It's synchronous.</strong> <code>sql.exec()</code> doesn't return a promise.
+      The database is in the same process — there's no network hop to await. This is the
+      "zero-latency" part of the pitch and it makes code read like single-machine code.</li>
+    <li><strong>Cursors:</strong> <code>exec()</code> returns an iterable cursor —
+      <code>.toArray()</code>, <code>.one()</code> (exactly one row or throw), or iterate lazily
+      with <code>for (const row of cursor)</code>.</li>
+    <li><strong>Implicit transactions:</strong> each <code>exec()</code> is atomic, and the
+      output gate means you rarely need explicit transactions. For multi-statement atomicity
+      use <code>ctx.storage.transactionSync(() =&gt; { ... })</code>.</li>
+    <li><strong>Limits:</strong> 10 GB per object. Remember the sharding model — that's 10 GB
+      <em>per room / per user / per tenant</em>, not per application.</li>
+    <li><strong>Point-in-time recovery:</strong> SQLite-backed objects can rewind storage to any
+      moment in the last 30 days (<code>ctx.storage.getCurrentBookmark()</code> /
+      <code>onNextSessionRestoreBookmark()</code>) — a genuinely underrated safety net.</li>
+  </ul>
+
+  <h2>Key-value</h2>
+<pre><code class="lang-js">await this.ctx.storage.put("config", { theme: "dark" });   // any structured-clonable value
+const config = await this.ctx.storage.get("config");
+await this.ctx.storage.put({ a: 1, b: 2 });                // batched write
+const map = await this.ctx.storage.list({ prefix: "user:" });
+await this.ctx.storage.deleteAll();                        // wipe this object's storage
+</code></pre>
+  <p>On SQLite-backed classes the KV API is a thin layer over the same database (there's also a
+  fully synchronous variant at <code>ctx.storage.kv</code>). KV vs SQL is ergonomics, not
+  architecture — start with SQL for anything with structure.</p>
+
+  <h2>In-memory state vs storage</h2>
+  <p>Instance properties (<code>this.anything</code>) survive between requests <em>while the
+  object stays in memory</em> — a free, always-consistent cache. But hibernation or eviction
+  resets them and re-runs the constructor. The rule:</p>
+  <div class="callout">
+    <span class="label">rule</span>
+    In-memory state is a performance optimization. Anything you'd be sad to lose goes through
+    <code>ctx.storage</code> — the caretaker's notebook, not the caretaker's memory.
+  </div>
+  <p>To load state exactly once before any request is handled, use
+  <code>ctx.blockConcurrencyWhile()</code> in the constructor — it holds all incoming events
+  until the callback resolves:</p>
+<pre><code class="lang-js">constructor(ctx, env) {
+  super(ctx, env);
+  ctx.blockConcurrencyWhile(async () =&gt; {
+    this.cache = (await ctx.storage.get("hot-state")) ?? {};
+  });
+}
+</code></pre>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-alarms">
+  <h1>Alarms</h1>
+  <p class="subtitle">Every object owns an alarm clock. It's cron, but per-instance and programmable.</p>
+
+  <p>An alarm wakes the object at a time you choose — even from hibernation — and runs its
+  <code>alarm()</code> handler. One alarm per object at a time; setting a new one overwrites
+  the old. Delivery is at-least-once with automatic retries (exponential backoff), and the
+  object is guaranteed not to be evicted while an alarm is pending.</p>
+
+<pre><code class="lang-js">import { DurableObject } from "cloudflare:workers";
+
+// A write-batcher: absorb bursts of events, flush at most once per 10s.
+export class Batcher extends DurableObject {
+  async add(event) {
+    // Cheap synchronous-KV write; buffered rows live in this object's SQLite.
+    await this.ctx.storage.put(`buf:${crypto.randomUUID()}`, event);
+
+    // Arm the alarm only if one isn't already pending.
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + 10_000);
+    }
+  }
+
+  async alarm() {
+    const buffered = await this.ctx.storage.list({ prefix: "buf:" });
+    if (buffered.size === 0) return;
+
+    await flushToUpstream([...buffered.values()]);   // your code
+
+    // Only clear after a successful flush — if we throw above, the
+    // runtime retries alarm() and nothing is lost.
+    await this.ctx.storage.delete([...buffered.keys()]);
+  }
+}
+</code></pre>
+
+  <h2>The patterns alarms unlock</h2>
+  <ul>
+    <li><strong>Batching/aggregation</strong> (above): absorb high-frequency writes in a cheap
+      local buffer, flush downstream on a timer. This is the backbone of many DO-based queues
+      and pipelines.</li>
+    <li><strong>TTLs and cleanup:</strong> a session object that deletes its own storage after
+      24h of inactivity. An object whose storage is empty and has no alarm costs nothing —
+      self-cleaning objects are how you run millions of them guilt-free.</li>
+    <li><strong>Recurring work:</strong> re-arm in the handler (<code>setAlarm(Date.now() + interval)</code>)
+      for a per-entity heartbeat — one scheduler per tenant instead of one global cron
+      scanning a table of tenants.</li>
+    <li><strong>Timeouts in coordination:</strong> "if the other player hasn't moved in 60s,
+      forfeit" — the game-room object arms an alarm on each turn.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="label">idempotency</span>
+    At-least-once means your <code>alarm()</code> can run twice for one arming (e.g. a retry
+    after a partial failure). Write handlers so a duplicate run is harmless — the
+    delete-after-flush ordering above is the standard shape.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-websockets">
+  <h1>WebSockets</h1>
+  <p class="subtitle">The killer app: one object as the meeting point for many live clients.</p>
+
+  <p>Because a name always routes to the same instance, a Durable Object is the natural
+  terminating end for WebSockets that need to see each other: everyone who connects to
+  <code>"room-42"</code> lands in the same object, which can broadcast to all of them from
+  one place. This is how chat, presence, multiplayer cursors, and game state get built here.</p>
+
+  <h2>Use the Hibernation API</h2>
+  <p>There are two ways to accept a WebSocket. The Web-standard way
+  (<code>server.accept()</code> + <code>addEventListener</code>) pins the object in memory for
+  the life of every connection — you pay duration charges for thousands of idle sockets. The
+  <strong>Hibernation API</strong> (<code>ctx.acceptWebSocket()</code>) lets the runtime hold
+  the connections while the object itself sleeps; it wakes only when a message actually
+  arrives. Same product, ~zero idle cost. There is no reason to use the old way in new code.</p>
+
+<pre><code class="lang-js">import { DurableObject } from "cloudflare:workers";
+
+export class ChatRoom extends DurableObject {
+  // WebSocket upgrades must come through fetch(), not RPC.
+  async fetch(request) {
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return new Response("Expected WebSocket", { status: 426 });
+    }
+
+    const [client, server] = Object.values(new WebSocketPair());
+
+    // Hibernation-aware accept: the runtime owns the socket and can
+    // evict this object while clients stay connected.
+    this.ctx.acceptWebSocket(server);
+
+    // Attach per-connection state that SURVIVES hibernation:
+    server.serializeAttachment({ user: crypto.randomUUID(), joined: Date.now() });
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  // Handler methods replace event listeners — the runtime re-creates the
+  // object and calls these even after it hibernated.
+  async webSocketMessage(ws, message) {
+    const { user } = ws.deserializeAttachment();
+    for (const peer of this.ctx.getWebSockets()) {
+      if (peer !== ws) peer.send(`${user.slice(0, 8)}: ${message}`);
+    }
+  }
+
+  async webSocketClose(ws, code, reason, wasClean) {
+    // On compat dates >= 2026-04-07 the runtime auto-completes the close
+    // handshake; on older dates you must call ws.close(code, reason) here.
+  }
+
+  async webSocketError(ws, error) {
+    console.error("ws error", error);
+  }
+}
+
+// Worker side: route /room/&lt;name&gt; to that room's object.
+export default {
+  async fetch(request, env) {
+    const name = new URL(request.url).pathname.split("/")[2] ?? "lobby";
+    return env.CHAT_ROOM.getByName(name).fetch(request);
+  },
+};
+</code></pre>
+
+  <h2>The hibernation contract</h2>
+  <ul>
+    <li>While hibernated: clients stay connected to Cloudflare's edge, in-memory state is gone,
+      no duration is billed.</li>
+    <li>On the next message/close/error: the constructor runs again, then the matching
+      <code>webSocket*</code> handler fires. <code>ctx.getWebSockets()</code> returns all live
+      sockets — you don't track them in an array (that array would die on hibernation).</li>
+    <li>Per-connection state goes in <code>serializeAttachment()</code> (survives, up to 2 KB
+      serialized) or keyed rows in storage — not in instance properties.</li>
+    <li>Heartbeats would defeat the whole point (every ping wakes the object), so the runtime can
+      answer them for you: <code>ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"))</code>
+      replies without waking anything.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="label">outbound sockets are different</span>
+    Hibernation applies to sockets the object <em>accepts</em>. An <em>outgoing</em> WebSocket or
+    TCP connection (the object as client) pins it in memory — and bills duration — for up to
+    15 minutes per connection. Architect so the object is the server whenever possible.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-lifecycle">
+  <h1>Lifecycle &amp; Memory</h1>
+  <p class="subtitle">What actually happens between "getByName" and "hibernated."</p>
+
+  <div class="flow">
+    <div class="st"><b>Stub created</b>local, free, nothing happens yet</div>
+    <div class="arr">→</div>
+    <div class="st"><b>First event</b>instance placed near the caller; constructor runs</div>
+    <div class="arr">→</div>
+    <div class="st"><b>Active</b>processing events, one at a time</div>
+    <div class="arr">→</div>
+    <div class="st"><b>Idle in memory</b>~seconds; warm, unbilled if hibernatable</div>
+    <div class="arr">→</div>
+    <div class="st"><b>Hibernated / evicted</b>memory gone, storage + identity + sockets remain</div>
+  </div>
+
+  <p>Details engineers actually need:</p>
+  <ul>
+    <li><strong>Placement:</strong> the instance is created in a Cloudflare data center near the
+      <em>first</em> caller and generally stays in that region; other callers reach it over
+      Cloudflare's backbone. For latency-sensitive global apps, shard by geography where it makes
+      sense (e.g. <code>getByName("eu:" + roomId)</code> from EU users) rather than fighting
+      placement.</li>
+    <li><strong>The constructor runs on every wake-up</strong> — first creation, post-hibernation,
+      post-eviction, and after every code deploy (deploys restart all instances). Keep it fast
+      and idempotent; heavy async init goes in <code>blockConcurrencyWhile()</code>.</li>
+    <li><strong>Eviction triggers:</strong> idleness, deploys, runtime maintenance, or exceeding
+      memory (128 MB, same as Workers). You cannot prevent it; you can only be correct in the
+      face of it. That's why the rule from tab 04 exists: durable facts live in storage.</li>
+    <li><strong>What keeps an object awake (and billing):</strong> in-flight requests,
+      non-hibernatable WebSockets, outbound TCP/WebSocket connections (up to 15 min each), and
+      code that holds the event loop. What does <em>not</em>: hibernatable sockets, pending
+      alarms (the alarm guarantees a future wake-up but doesn't keep it in memory).</li>
+    <li><strong>"Deleting" an object</strong> = <code>ctx.storage.deleteAll()</code> +
+      <code>deleteAlarm()</code> + letting it go idle. Identity is virtual; an object with no
+      storage, no alarm, and no traffic costs nothing and is indistinguishable from one that
+      never existed.</li>
+    <li><strong>Errors and overload:</strong> if an object is overloaded or its host is
+      restarting, calls on the stub throw (some with a <code>.retryable</code> hint). Treat a DO
+      call like any RPC: timeouts and retry policy live in the calling Worker.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">mental checksum</span>
+    Identity and storage are permanent; the process is disposable. If your object behaves
+    correctly when killed between any two events and revived cold, you've designed it right.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-patterns">
+  <h1>Patterns &amp; Pitfalls</h1>
+  <p class="subtitle">The judgment layer: what separates a demo from a system.</p>
+
+  <h2>Patterns that recur everywhere</h2>
+  <ul>
+    <li><strong>One object per unit of contention.</strong> Room, document, user, tenant, SKU,
+      device. The name <em>is</em> the shard key. If you can name the thing users fight over,
+      you can usually ship the feature as "that name's object arbitrates."</li>
+    <li><strong>Rate limiter:</strong> <code>getByName(clientIP)</code>, token bucket in
+      storage (or even in memory, if approximate-after-eviction is acceptable). Strongly
+      consistent by construction — no Redis, no race.</li>
+    <li><strong>Distributed lock / leader election:</strong> the object <em>is</em> the lock;
+      whoever's request gets processed first holds it. Lease expiry via alarm.</li>
+    <li><strong>Fan-in, then fan-out:</strong> ingest bursty events (fan-in via cheap local
+      writes), batch via alarm, push downstream; or accept one authoritative update and
+      broadcast to N hibernating WebSockets (fan-out).</li>
+    <li><strong>Registry + workers:</strong> a directory object holding the list of per-entity
+      objects (created with <code>newUniqueId()</code>), each doing its own work. Keep the
+      directory's job tiny — it's the one object that everything touches.</li>
+    <li><strong>Agent per user/session:</strong> LLM agents need exactly what DOs sell — serial
+      execution, durable memory, timers, and a WebSocket to the client. (Cloudflare's Agents SDK
+      is a framework on top of Durable Objects.)</li>
+  </ul>
+
+  <h2>Pitfalls, ranked by how often they bite</h2>
+  <ol>
+    <li><strong>The singleton bottleneck.</strong> One object for "all users" caps your app at
+      one thread's throughput (roughly, low thousands of simple requests/sec — far less if
+      handlers do real work). If an object's name would be a constant string, ask hard whether
+      the design is right. Where a global view is truly needed, shard N ways and aggregate.</li>
+    <li><strong>Treating memory as durable.</strong> Works in dev (nothing hibernates while
+      you're poking it), loses data in prod. Constructor + storage, always.</li>
+    <li><strong>Forgetting the migration stanza.</strong> Binding without
+      <code>new_sqlite_classes</code> → deploy-time error. Migrations are append-only with
+      unique tags; renames/deletes get their own entries.</li>
+    <li><strong>Standard WebSocket API in production.</strong> Duration billing for every idle
+      connected second, times every client. Use hibernation (tab 06); the API difference is
+      minutes of work.</li>
+    <li><strong>Chatty cross-object calls.</strong> Object A awaiting object B on every request
+      reintroduces network latency you just designed out, and risks call-graph cycles
+      (A→B→A deadlocks on A's own single thread). Prefer telling (fire-and-forget updates,
+      batched syncs) over asking.</li>
+    <li><strong>Doing slow upstream work while holding the room.</strong> A 2-second
+      <code>fetch()</code> to a third-party API inside a hot object's handler stalls every other
+      caller of that object (events queue behind it). Push slow I/O to the calling Worker, a
+      Queue, or an alarm-driven batch.</li>
+    <li><strong>Unbounded per-object growth.</strong> 10 GB is the ceiling per object; if one
+      tenant's object can grow forever, shard by time or sub-key before it matters, and let
+      old objects self-delete via alarms.</li>
+    <li><strong>Auth inside the object only.</strong> The fronting Worker should authenticate
+      <em>before</em> routing — every request that reaches an object bills a request and can
+      wake it. Don't let anonymous traffic wake a million caretakers.</li>
+  </ol>
+
+  <div class="callout">
+    <span class="label">testing note</span>
+    <code>wrangler dev</code> runs DOs locally with real storage semantics, and
+    <code>@cloudflare/vitest-pool-workers</code> lets unit tests construct objects directly and
+    inspect their storage. Concurrency bugs are rare by design here — most test effort goes to
+    alarm idempotency and hibernation-revival paths.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-pricing">
+  <h1>Pricing &amp; Limits</h1>
+  <p class="subtitle">Numbers as of August 2026 — always confirm against the <a href="https://developers.cloudflare.com/durable-objects/platform/pricing/" target="_blank" rel="noopener">pricing page</a>.</p>
+
+  <p>Durable Objects are available on the <strong>free plan</strong> (SQLite-backed classes
+  only). Two meters: <strong>compute</strong> (requests + duration) and
+  <strong>storage</strong> (SQLite rows/GB — billing live since January 2026).</p>
+
+  <h2>Compute</h2>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Free plan</th><th>Paid plan (Workers Paid, $5/mo min)</th></tr>
+    <tr><td>Requests<br><span class="kbd-note">HTTP, RPC sessions, WS messages, alarm runs</span></td>
+        <td>100,000 / day</td>
+        <td>1 million / month included, then $0.15 per million</td></tr>
+    <tr><td>Duration<br><span class="kbd-note">wall-clock while in memory, at 128 MB</span></td>
+        <td>13,000 GB-s / day</td>
+        <td>400,000 GB-s / month included, then $12.50 per million GB-s</td></tr>
+  </table></div>
+  <ul>
+    <li>Free-plan limits reset at 00:00 UTC; exceeding one makes that operation type fail with
+      errors for the rest of the day (plan for this in clients).</li>
+    <li><strong>Duration is the meter that punishes bad architecture.</strong> Hibernatable-idle
+      objects bill nothing; a non-hibernatable WebSocket or an outbound connection bills
+      wall-clock. 1 GB-s = 8 object-seconds at 128 MB, so 400k GB-s ≈ 3.2 million
+      object-seconds a month included.</li>
+    <li>Each RPC session bills as one request; chained calls on a returned
+      <code>RpcTarget</code> stub share the session. Incoming WebSocket messages bill in 20:1
+      batches (20 messages : 1 request-unit); outgoing are free.</li>
+  </ul>
+
+  <h2>Storage (SQLite backend)</h2>
+  <p>Billed like D1: rows read, rows written, and GB-month of stored data, each with monthly
+  included allowances on the paid plan (e.g. billions of rows read and 5 GB-month included;
+  overage on the order of $0.001/million rows read and ~$0.20/GB-month). Free plan gets daily
+  row allowances and 5 GB total. KV-API calls map to row operations under the hood. The exact
+  rates move occasionally — check the pricing page before capacity-planning.</p>
+
+  <h2>Limits that shape design</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Limit</th><th>Value</th><th>Design consequence</th></tr>
+    <tr><td>Storage per object</td><td>10 GB</td><td>Shard unbounded datasets across objects</td></tr>
+    <tr><td>Memory per object</td><td>128 MB</td><td>Don't cache the world in <code>this.*</code></td></tr>
+    <tr><td>Throughput per object</td><td>one thread</td><td>The singleton bottleneck (tab 08)</td></tr>
+    <tr><td>Objects per namespace</td><td>effectively unbounded</td><td>"One per user" is a fine plan at any scale</td></tr>
+    <tr><td>Alarm per object</td><td>1 pending</td><td>Multiplex schedules inside <code>alarm()</code> if needed</td></tr>
+    <tr><td>CPU per event</td><td>30 s default</td><td>Long work → alarms/Queues/Workflows</td></tr>
+  </table></div>
+
+  <div class="callout">
+    <span class="label">rule of thumb</span>
+    A hobby-to-startup real-time app — thousands of users, hibernating WebSockets, sane
+    sharding — typically fits inside the free tier or the $5 paid floor. The expensive
+    mistakes are architectural (idle-but-pinned objects), not usage growth.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-compare">
+  <h1>DO vs KV vs D1 (vs the rest)</h1>
+  <p class="subtitle">Cloudflare ships several storage products. Pick by consistency and shape, not vibes.</p>
+
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Durable Objects</th><th>Workers KV</th><th>D1</th><th>R2</th></tr>
+    <tr><td>Shape</td>
+        <td>Millions of small SQLite DBs + compute</td>
+        <td>Global key-value cache</td>
+        <td>One (or few) full SQLite databases</td>
+        <td>Object/blob store (S3 API)</td></tr>
+    <tr><td>Consistency</td>
+        <td><strong>Strong</strong>, serialized per object</td>
+        <td>Eventual (~seconds to propagate)</td>
+        <td>Strong at the primary; read replicas optional</td>
+        <td>Strong per object</td></tr>
+    <tr><td>Latency profile</td>
+        <td>µs at the object; one hop to reach it</td>
+        <td>Fast reads everywhere; slow-ish writes</td>
+        <td>Query over network from Worker</td>
+        <td>Large-payload optimized</td></tr>
+    <tr><td>Compute attached?</td>
+        <td><strong>Yes</strong> — that's the point</td>
+        <td>No</td><td>No</td><td>No</td></tr>
+    <tr><td>Sweet spot</td>
+        <td>Coordination, real-time, per-entity state</td>
+        <td>Config, sessions-ish, feature flags, cached pages</td>
+        <td>Your app's relational data, admin queries, joins across entities</td>
+        <td>Files, images, backups, logs</td></tr>
+  </table></div>
+
+  <h2>Quick decision guide</h2>
+  <ul>
+    <li><strong>"Two clients must agree, immediately"</strong> (seat booking, game move, doc edit,
+      rate limit) → <strong>Durable Object</strong>. This is the only option on the list that
+      gives you serialized, strongly consistent read-modify-write.</li>
+    <li><strong>"Read-heavy, written rarely, staleness fine"</strong> → <strong>KV</strong>.
+      Don't burn a DO on feature flags.</li>
+    <li><strong>"I want to query across all my entities"</strong> (reports, admin dashboards,
+      joins over all users) → <strong>D1</strong>. Per-entity DO storage is invisible to global
+      queries — a common hybrid is DOs for live state that asynchronously sync summaries into D1
+      for analytics.</li>
+    <li><strong>"It's a file"</strong> → <strong>R2</strong>.</li>
+    <li><strong>"Background jobs, retries, decoupling producers from consumers"</strong> →
+      <strong>Queues</strong>; <strong>"multi-step processes with sleeps and retries"</strong> →
+      <strong>Workflows</strong> (itself built on DOs, which tells you something).</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">the litmus test</span>
+    Ask: "does this data have a natural <em>owner</em> with a name, and do writers contend for
+    it?" Yes → Durable Object. No owner / no contention → KV, D1, or R2 by shape.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="tab" id="tab-references">
+  <h1>References</h1>
+  <p class="subtitle">Primary sources used for this guide (all cloudflare docs current as of August 2026).</p>
+
+  <h2>Core docs</h2>
+  <ul>
+    <li><a href="https://developers.cloudflare.com/durable-objects/" target="_blank" rel="noopener">Durable Objects — product docs home</a></li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/concepts/what-are-durable-objects/" target="_blank" rel="noopener">What are Durable Objects?</a> — concepts, features, highlights</li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/" target="_blank" rel="noopener">Lifecycle of a Durable Object</a></li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/get-started/" target="_blank" rel="noopener">Get started guide</a></li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/" target="_blank" rel="noopener">SQLite Storage API</a> · <a href="https://developers.cloudflare.com/durable-objects/api/alarms/" target="_blank" rel="noopener">Alarms API</a> · <a href="https://developers.cloudflare.com/durable-objects/api/namespace/" target="_blank" rel="noopener">Namespace API</a></li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/best-practices/websockets/" target="_blank" rel="noopener">WebSockets best practices</a> (Hibernation API)</li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/" target="_blank" rel="noopener">Rules of Durable Objects</a> — the closest thing to an official patterns doc</li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/reference/durable-object-class-migrations-legacy/" target="_blank" rel="noopener">Class migrations</a> · <a href="https://developers.cloudflare.com/workers/wrangler/configuration/" target="_blank" rel="noopener">Wrangler configuration</a></li>
+    <li><a href="https://developers.cloudflare.com/durable-objects/platform/pricing/" target="_blank" rel="noopener">Pricing</a> · <a href="https://developers.cloudflare.com/durable-objects/platform/limits/" target="_blank" rel="noopener">Limits</a></li>
+  </ul>
+
+  <h2>Worth reading beyond the docs</h2>
+  <ul>
+    <li><a href="https://blog.cloudflare.com/sqlite-in-durable-objects/" target="_blank" rel="noopener">Zero-latency SQLite storage in every Durable Object</a> — the blog post that explains the storage design (and output gates) better than anything else</li>
+    <li><a href="https://blog.cloudflare.com/durable-objects-easy-fast-correct-choose-three/" target="_blank" rel="noopener">Durable Objects: Easy, Fast, Correct — Choose Three</a> — input/output gates deep dive</li>
+    <li><a href="https://github.com/cloudflare/workers-chat-demo" target="_blank" rel="noopener">Edge Chat Demo</a> — the canonical DO + WebSockets example app</li>
+    <li><a href="https://developers.cloudflare.com/agents/" target="_blank" rel="noopener">Cloudflare Agents SDK</a> — a framework built on DOs; good for seeing the patterns in production shape</li>
+  </ul>
+
+  <h2>Version notes for this guide</h2>
+  <ul>
+    <li>SQLite backend GA with 10 GB/object: April 2025. DOs on the free plan: April 2025.</li>
+    <li>SQLite storage billing enabled: January 2026.</li>
+    <li>New key-value-backed namespaces blocked for accounts without existing ones: July 2026.</li>
+    <li><code>web_socket_auto_reply_to_close</code> default-on for compatibility dates ≥ 2026-04-07.</li>
+    <li>Declarative <code>exports</code> config (alternative to <code>migrations</code>): June 2026.</li>
+  </ul>
+</section>
+
+<div class="pager" id="pager"></div>
+</div></main>
+</div>
+
+<script>
+(function () {
+  var tabs = ["overview","eli5","mental-model","first-object","storage","alarms",
+              "websockets","lifecycle","patterns","pricing","compare","references"];
+  var links = document.querySelectorAll("#tabList a[data-tab]");
+  var pager = document.getElementById("pager");
+  var sidebar = document.getElementById("sidebar");
+
+  function titleOf(id) {
+    var a = document.querySelector('#tabList a[data-tab="' + id + '"]');
+    return a ? a.textContent.replace(/^\d+\s*/, "") : id;
+  }
+
+  function activate(id) {
+    if (tabs.indexOf(id) === -1) id = "overview";
+    document.querySelectorAll("section.tab").forEach(function (s) {
+      s.classList.toggle("active", s.id === "tab-" + id);
+    });
+    links.forEach(function (a) {
+      a.classList.toggle("active", a.getAttribute("data-tab") === id);
+    });
+    var i = tabs.indexOf(id), html = "";
+    if (i > 0) html += '<a class="prev" href="#' + tabs[i-1] + '">← ' + titleOf(tabs[i-1]) + '</a>';
+    if (i < tabs.length - 1) html += '<a class="next" href="#' + tabs[i+1] + '">' + titleOf(tabs[i+1]) + ' →</a>';
+    pager.innerHTML = html;
+    sidebar.classList.remove("open");
+    window.scrollTo(0, 0);
+  }
+
+  window.addEventListener("hashchange", function () {
+    activate(location.hash.slice(1));
+  });
+  activate(location.hash.slice(1) || "overview");
+
+  // --- theme toggle ---
+  var toggle = document.getElementById("themeToggle");
+  var label = document.getElementById("themeLabel");
+  function syncLabel() {
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    label.textContent = dark ? "dark" : "light";
+  }
+  toggle.addEventListener("click", function () {
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    if (dark) document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", "dark");
+    localStorage.setItem("theme", dark ? "light" : "dark");
+    syncLabel();
+  });
+  syncLabel();
+
+  // --- mobile drawer ---
+  document.getElementById("menuBtn").addEventListener("click", function () {
+    sidebar.classList.toggle("open");
+  });
+
+  // --- minimal syntax tinting (strings before comments, so "https://" survives) ---
+  var KW = /\b(import|export|class|extends|constructor|super|async|await|return|const|let|var|new|default|if|else|for|of|in|function|this|null|true|false|undefined|typeof|throw|try|catch|while|switch|case|break)\b/;
+  var RX = new RegExp(
+    '("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'|`(?:[^`\\\\]|\\\\.)*`)' + // 1 string
+    "|(\\/\\/[^\\n]*|#[^\\n]*)" +                                                    // 2 comment
+    "|" + KW.source +                                                                // 3 keyword
+    "|\\b(\\d[\\d_]*(?:\\.\\d+)?)\\b",                                               // 4 number
+    "g"
+  );
+  document.querySelectorAll("pre code").forEach(function (block) {
+    var esc = block.textContent
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    block.innerHTML = esc.replace(RX, function (m, str, com, kw, num) {
+      if (str) return '<span class="tok-str">' + m + "</span>";
+      if (com) return '<span class="tok-com">' + m + "</span>";
+      if (kw)  return '<span class="tok-kw">' + m + "</span>";
+      if (num) return '<span class="tok-num">' + m + "</span>";
+      return m;
+    });
+  });
+})();
+</script>
+</body>
+</html>
