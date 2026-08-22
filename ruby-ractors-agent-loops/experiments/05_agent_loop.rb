@@ -1,30 +1,21 @@
 # frozen_string_literal: true
-#
-# ^ NOT optional decoration. Without it, TOOL_NAMES = %w[...].freeze is a
-# frozen array of MUTABLE strings -> not shareable -> every worker ractor
-# dies with Ractor::IsolationError at first access, and the supervisor hangs
-# in Ractor.select. (Happened for real; see notes.md.)
-#
-# 05: Agent loops on ractors — supervisor + worker pool + event-bus ractor.
-#
-# Topology (Ruby 3.3 idioms; see report for the 3.5 Ractor::Port version):
+# 05: Agent loops on ractors, Ruby 4 port topology.
 #
 #   main (supervisor)
-#     ├── pipe ractor      — job queue; workers pull from it => load balancing
-#     ├── worker ractors   — each runs the agent loop (LLM turn -> tool -> repeat)
-#     └── bus ractor       — receives events from workers; in production this
-#                            ractor owns the Pusher HTTP client and batches
-#                            trigger() calls. Here it collects + timestamps.
+#     creates ready_port    workers announce themselves when idle
+#             results_port  workers push finished runs
+#             events_port   workers stream progress (the Pusher seam)
 #
-# Ractor objects are themselves SHAREABLE, so workers can hold a reference to
-# the bus ractor and .send() events to it — the one sanctioned form of "shared
-# access": funnel all effects through one owner.
+# A port's receive side belongs to the ractor that created it, so all three
+# ports are received in main. Job dispatch is pull-based: an idle worker
+# pushes itself into ready_port, the supervisor sends it a job on its inbox.
+# One Ractor.select watches all three ports at once.
 Warning[:experimental] = false
+STDOUT.sync = true
 
-# ---- The home-rolled-framework-ish bits (all shareable constants) ----------
-# Tools as a module, not top-level lambdas: top-level lambdas capture `main`
-# as self and can't be made shareable (hit this again — see notes.md).
-# Modules are shareable by nature, and this matches real framework shape.
+# Tools live in a module. Modules are shareable and this is the shape a real
+# tool registry has. (A top-level lambda captures `main` as self and cannot
+# be shared; Ractor.shareable_proc exists if you need a closure.)
 module Tools
   module_function
   def search(args)    = "3 results for #{args["q"].inspect}: [ractors, ports, gvl]"
@@ -32,10 +23,10 @@ module Tools
 end
 TOOL_NAMES = %w[search calculate].freeze
 
-SYSTEM_PROMPT = "You are a research agent. Use tools, then answer.".freeze
+SYSTEM_PROMPT = "You are a research agent. Use tools, then answer."
 
-# Deterministic fake LLM: turn 1 -> search, turn 2 -> calculate, turn 3 -> final.
-# Simulates network+inference latency with sleep (GVL-irrelevant inside a ractor).
+# Deterministic fake LLM: search on turn 1, calculate on turn 2, then answer.
+# sleep stands in for network and inference latency.
 def fake_llm(messages)
   sleep(0.05 + messages.size * 0.01)
   case messages.count { |m| m[:role] == :assistant }
@@ -45,79 +36,71 @@ def fake_llm(messages)
   end
 end
 
-# ---- The agent loop itself (runs inside a worker ractor) -------------------
-def run_agent(job, bus)
+# The agent loop. Ordinary Ruby; the only ractor-aware part is pushing small
+# frozen event hashes into the events port.
+def run_agent(job, events)
   agent_id = job[:agent_id]
   messages = [{ role: :system, content: SYSTEM_PROMPT }, { role: :user, content: job[:prompt] }]
-  bus.send({ agent_id:, type: "agent.started" })
+  events << { agent_id:, type: "agent.started" }
   turn = 0
   loop do
     turn += 1
     response = fake_llm(messages)
     messages << response
     if (tc = response[:tool_call])
-      bus.send({ agent_id:, type: "tool.called", tool: tc[:name] })
+      events << { agent_id:, type: "tool.called", tool: tc[:name] }
       raise "unknown tool #{tc[:name]}" unless TOOL_NAMES.include?(tc[:name])
       result = Tools.public_send(tc[:name], tc[:args])
       messages << { role: :tool, name: tc[:name], content: result }
-      bus.send({ agent_id:, type: "tool.result", tool: tc[:name], preview: result[0, 40] })
+      events << { agent_id:, type: "tool.result", tool: tc[:name], preview: result[0, 40] }
     else
-      bus.send({ agent_id:, type: "agent.completed", turns: turn })
+      events << { agent_id:, type: "agent.completed", turns: turn }
       return { agent_id:, turns: turn, answer: response[:content], messages: messages.size }
     end
   end
 end
 
-# ---- Wiring ----------------------------------------------------------------
 POOL_SIZE = 4
 JOBS      = 8
 
-# Event bus: single owner of the "Pusher client". Everything funnels here.
-bus = Ractor.new do
-  events = []
-  loop do
-    ev = Ractor.receive
-    break if ev == :drain
-    events << ev.merge(t: Process.clock_gettime(Process::CLOCK_MONOTONIC))
-    # production: batch into Pusher.trigger_batch every N events / M ms
-  end
-  Ractor.yield(events)
-end
-
-# Job queue: the classic "pipe" — many workers .take from it, giving pull-based
-# load balancing with zero extra code.
-pipe = Ractor.new do
-  loop { Ractor.yield(Ractor.receive) }
-end
+ready_port   = Ractor::Port.new
+results_port = Ractor::Port.new
+events_port  = Ractor::Port.new
 
 workers = POOL_SIZE.times.map do |i|
-  Ractor.new(pipe, bus, name: "worker-#{i}") do |pipe, bus|
+  Ractor.new(ready_port, results_port, events_port, name: "worker-#{i}") do |ready, results, events|
     loop do
-      job = pipe.take
+      ready << Ractor.current          # announce: idle, send me work
+      job = Ractor.receive
       break if job == :shutdown
-      Ractor.yield(run_agent(job, bus))
+      results << run_agent(job, events)
     end
+    :stopped
   end
 end
 
-t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-JOBS.times { |i| pipe.send({ agent_id: "agent-#{i}", prompt: "Research ractors, then compute 6*7" }) }
+jobs = JOBS.times.map { |i| { agent_id: "agent-#{i}", prompt: "Research ractors, then compute 6*7" } }
 
-results = []
-while results.size < JOBS
-  _r, result = Ractor.select(*workers)
-  results << result
+t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+results, events = [], []
+EXPECTED_EVENTS = JOBS * 6 # started + 2 tool.called + 2 tool.result + completed
+until results.size == JOBS && events.size == EXPECTED_EVENTS
+  port, msg = Ractor.select(ready_port, results_port, events_port)
+  case port
+  when ready_port   then msg.send(jobs.shift || :shutdown)  # msg is an idle worker
+  when results_port then results << msg
+  when events_port  then events << msg
+    # production: hand msg to the Pusher publisher thread here
+  end
 end
 dt = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0
 
-POOL_SIZE.times { pipe.send(:shutdown) }
-bus.send(:drain)
-events = bus.take
+# Drain remaining ready announcements so every worker gets its :shutdown.
+workers.each { |w| w.send(:shutdown) rescue nil }
+workers.each { |w| w.join rescue nil }
 
 puts "#{JOBS} agents, #{POOL_SIZE} workers -> #{results.size} results in #{dt.round(2)}s"
 puts "sample result: #{results.first.inspect}"
-puts "bus captured #{events.size} events; last: #{events.last.reject { |k,_| k == :t }.inspect}"
+puts "events seen: #{events.size}; last: #{events.last.inspect}"
 counts = events.group_by { _1[:type] }.transform_values(&:size)
 puts "event counts: #{counts.inspect}"
-serial_estimate = JOBS * (0.05*3 + (2+3+4+5+6)*0.01) # rough
-puts "(each agent = 3 LLM turns; serial would be ~#{serial_estimate.round(1)}s+)"

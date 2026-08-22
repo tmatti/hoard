@@ -1,25 +1,27 @@
-# 04: I/O-bound work — the case that actually dominates agent loops.
-# An agent turn is ~99% waiting on the LLM API. CRuby threads RELEASE the GVL
-# while blocked on I/O, so threads already give full concurrency for this.
-# Simulate an LLM call with a real blocking read against a local TCP server
-# that responds after 300ms.
+# frozen_string_literal: true
+# 04: I/O-bound work, the case that dominates agent loops. An agent turn is
+# mostly waiting on the LLM API. CRuby releases the GVL while blocked on I/O,
+# so threads already give full concurrency here. Ractors add nothing for it.
+# Simulates an LLM call with a real blocking read against a local TCP server
+# that answers after 300ms.
 Warning[:experimental] = false
+STDOUT.sync = true
 require 'socket'
 
 PORT = 43_210
-server_thread = Thread.new do
+Thread.new do
   server = TCPServer.new('127.0.0.1', PORT)
   loop do
     client = server.accept
     Thread.new(client) do |c|
-      c.gets           # read request line
-      sleep 0.3        # model "thinking"
+      c.gets
+      sleep 0.3
       c.puts '{"role":"assistant","content":"done"}'
       c.close
     end
   end
 end
-sleep 0.2 # let server boot
+sleep 0.2
 
 def llm_call(port)
   s = TCPSocket.new('127.0.0.1', port)
@@ -36,6 +38,7 @@ def bench(label)
 end
 
 N = 8
+puts "#{RUBY_VERSION}: #{N} concurrent 300ms LLM calls"
 bench("serial")  { N.times { llm_call(PORT) } }
 bench("threads") { Array.new(N) { Thread.new { llm_call(PORT) } }.each(&:join) }
-bench("ractors") { Array.new(N) { Ractor.new(PORT) { |p| llm_call(p) } }.each(&:take) }
+bench("ractors") { Array.new(N) { Ractor.new(PORT) { |p| llm_call(p) } }.each(&:value) }

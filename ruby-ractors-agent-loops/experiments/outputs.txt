@@ -1,11 +1,15 @@
-$ ruby 01_basics.rb   # ruby 3.3.6
-take: 42
-echo: hello
-captured-var error: ArgumentError: can not isolate a Proc because it accesses outer variables (x).
-global-var error: Ractor::IsolationError: can not access global variables $counter from non-main Ractors
+$ ruby 01_basics.rb   # ruby 4.0.2
+value: 42
+progress: turn 1
+progress: turn 2
+worker result: done
+6 * 7 = 42
+captured-var error: can not isolate a Proc because it accesses outer variables (x).
+global-var error: Ractor::IsolationError: can not access global variable $counter from non-main Ractor
 remote error: RuntimeError: agent crashed
+Ractor#take still exists? false
 
-$ ruby 02_shareability.rb   # ruby 3.3.6
+$ ruby 02_shareability.rb   # ruby 4.0.2
 Integer                        shareable? true
 Symbol                         shareable? true
 frozen String                  shareable? true
@@ -15,59 +19,62 @@ frozen Array w/ mutable elem   shareable? false
 Hash (mutable)                 shareable? false
 Class                          shareable? true
 Module                         shareable? true
-Proc (isolated)                shareable? true
+shareable_proc                 shareable? true
 copy: same object? false (deep-copied on send)
 move: receiver sees 10000000 bytes
 move: sender access now raises Ractor::MovedError
 make_shareable: config frozen? true, nested frozen? true
 shared: same object across ractors? true
+plain top-level lambda: Ractor::IsolationError: Proc's self is not shareable: #<Proc:0x00007f1718d
+shareable_proc in another ractor: 40
 
-$ ruby 03_parallelism.rb   # ruby 3.3.6
-4x fib(30) on ? cores
-cores available: 4
-serial         0.37s
-threads        0.38s
-ractors        0.87s
+$ ruby 03_parallelism.rb   # ruby 4.0.2
+4.0.2: 4x fib(32) on 4 cores
+serial      0.89s
+threads     0.93s
+ractors     0.24s
+forks       0.23s
 
-threads vs serial: 0.98x
-ractors vs serial: 0.42x
+threads: 0.96x  ractors: 3.77x  forks: 3.80x (vs serial)
 
-$ ruby 03b_ractor_overhead.rb   # ruby 3.3.6
-fib(30) main, single-ractor mode: 0.099s
-spawn+join empty ractor:         0.004s
-fib(30) in one ractor:           0.096s
-fib(30) main, multi-ractor mode: 0.100s
-4x fib(32) serial: 1.05s   ractors: 2.09s   speedup: 0.50x
-
-$ ruby 04_io_bound.rb   # ruby 3.3.6
+$ ruby 04_io_bound.rb   # ruby 4.0.2
+4.0.2: 8 concurrent 300ms LLM calls
 serial    2.41s
 threads   0.31s
 ractors   0.31s
 
-$ ruby 05_agent_loop.rb   # ruby 3.3.6
+$ ruby 05_agent_loop.rb   # ruby 4.0.2
 8 agents, 4 workers -> 8 results in 0.55s
-sample result: {:agent_id=>"agent-3", :turns=>3, :answer=>"Answer: ractors give parallel agent loops; 6*7=42.", :messages=>7}
-bus captured 48 events; last: {:agent_id=>"agent-4", :type=>"agent.completed", :turns=>3}
-event counts: {"agent.started"=>8, "tool.called"=>16, "tool.result"=>16, "agent.completed"=>8}
-(each agent = 3 LLM turns; serial would be ~2.8s+)
+sample result: {agent_id: "agent-0", turns: 3, answer: "Answer: ractors give parallel agent loops; 6*7=42.", messages: 7}
+events seen: 48; last: {agent_id: "agent-4", type: "agent.completed", turns: 3}
+event counts: {"agent.started" => 8, "tool.called" => 16, "tool.result" => 16, "agent.completed" => 8}
 
-$ ruby 06_pitfalls.rb   # ruby 3.3.6
-require inside ractor: Ractor::IsolationError: can not access non-shareable objects in constant Kernel::RUBYGEMS_ACTIVATION_MON
-net/http from ractor: Ractor::IsolationError: can not access non-shareable objects in constant Net::HTTP::SSL_IVNAMES by non-m
-JSON in ractor: {"event"=>"agent.completed", "turns"=>3}
+$ ruby 06_pitfalls.rb   # ruby 4.0.2
+4.0.2
+require 'csv' inside ractor: OK
+net/http from ractor: HTTP 200 body={"ok":true}
+pusher trigger in ractor: RuntimeError: defined with an un-shareable Proc in a different Ractor
+JSON in ractor: {"event" => "agent.completed", "turns" => 3}
 class ivar memo: Ractor::IsolationError: can not set instance variables of classes/modules by non-main Ractors
 shareable const: claude-sonnet-5 OK
-ENV read: PATH starts with "/root/.local" OK
-Time.now=23:24 rand=46 uuid=3b723b4c OK
+ENV/time/random: PATH="/root/.local" 14:55 rand=23 uuid=5d902e28 OK
+Timeout in ractor: OK
 
-$ ruby 07_thread_ractor_deadlock.rb   # ruby 3.3.6
-ruby 3.3.6
-single thread -> ractor -> take: 42 (OK)
-3 concurrent threads -> ractors: DEADLOCK (2/3 threads still blocked after 8s)
-=> never block multiple threads on ractor operations; use one owner thread
+$ ruby 07_thread_ractor_deadlock.rb   # ruby 4.0.2
+ruby 4.0.2
+single thread -> ractor -> value: 42 (OK)
+3 concurrent threads -> ractors: [0, 10, 20] (no deadlock on this ruby)
+8 concurrent threads -> ractors: [1, 2, 3, 4, 5, 6, 7, 8] (no deadlock)
 
-# Cross-version: 4x fib(32), 4 cores (fork ground truth: 3.5x speedup)
-# ruby 3.3.6:          serial 0.98s | 4 ractors 2.28s -> 0.43x (SLOWER; 358% CPU, ~12x cycles/iter wasted)
-# ruby 3.4.5:          serial 0.99s | 4 ractors 2.22s -> 0.45x (same pathology)
-# ruby 4.0.0-preview:  serial 1.01s | 4 ractors 0.27s -> 3.74x speedup, 386% CPU, no waste
-# (official Ruby 4.0 Tarai benchmark: 3.87x on 4 ractors — matches)
+$ ruby 08_async.rb   # ruby 4.0.2
+4.0.2, async 2.44.1
+50 calls, threads            0.34s
+50 calls, async tasks        0.32s
+32 calls, semaphore cap 8    1.21s
+async inside ractor: OK (3 concurrent calls)
+ractor wait inside async     0.80s
+  (0.8s = the 0.5s ractor wait blocked the 0.3s I/O call; no overlap)
+  cpu result via bridge: [21, 42]
+owner-thread bridge          0.30s
+  (0.3s: the I/O call and the ractor work overlapped)
+

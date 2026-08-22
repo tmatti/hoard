@@ -1,50 +1,65 @@
-# 01: Ractor basics — spawn, send/receive, take, and isolation.
-# Ruby 3.3 API. (3.5 replaces take/yield with Ractor::Port — noted in report.)
-
+# frozen_string_literal: true
+# 01: Ractor basics on Ruby 4. Spawn, ports, value/join, isolation errors.
+# Ruby 4.0 removed Ractor#take and Ractor.yield. Results come back through
+# Ractor#value (shaped like Thread#value) and Ractor::Port.
 Warning[:experimental] = false
+STDOUT.sync = true
 
-# A ractor is created with a block. The block runs in parallel, in its own
-# isolated heap. Arguments must be shareable or are copied.
-r = Ractor.new(21) do |n|
-  n * 2 # last expression is the ractor's "return value", fetched with #take
+# A ractor is an isolated interpreter in your process. The block's last
+# expression is its result; #value waits for it.
+r = Ractor.new(21) { |n| n * 2 }
+puts "value: #{r.value}"
+
+# A port is a queue with one designated receiver: the ractor that created it.
+# Any ractor may push into it. This is how a worker streams progress out.
+port = Ractor::Port.new
+w = Ractor.new(port) do |out|
+  out << "progress: turn 1"
+  out << "progress: turn 2"
+  :done
 end
-puts "take: #{r.take.inspect}"
+puts port.receive
+puts port.receive
+puts "worker result: #{w.value}"
 
-# Message passing: push style (send -> receive)
-echo = Ractor.new do
+# Request/reply. Requests arrive on the default inbox (send/receive, which
+# Ruby 4 kept); the caller ships a reply port along with the arguments.
+calc = Ractor.new do
   loop do
-    msg = Ractor.receive        # blocks until a message arrives (infinite inbox)
-    break if msg == :stop
-    Ractor.yield("echo: #{msg}") # blocks until someone takes
+    op, a, b, reply = Ractor.receive
+    break if op == :stop
+    reply << (op == :add ? a + b : a * b)
   end
 end
-echo.send("hello")
-puts echo.take
-echo.send(:stop)
+reply = Ractor::Port.new
+calc.send([:mul, 6, 7, reply])
+puts "6 * 7 = #{reply.receive}"
+calc.send([:stop, nil, nil, nil])
 
-# Isolation: the block cannot capture outer local variables...
+# Isolation is unchanged: the block may not capture ANY outer local.
 x = 10
 begin
   Ractor.new { x + 1 }
-rescue => e
-  puts "captured-var error: #{e.class}: #{e.message.lines.first.strip}"
+rescue ArgumentError => e
+  puts "captured-var error: #{e.message.lines.first.strip}"
 end
 
-# ...and cannot touch non-shareable globals/objects from other ractors.
+# Globals are main-ractor property.
 $counter = 0
-# (note: `rescue => err` — even the rescue variable must not collide with an
-#  outer local, or Ractor.new refuses the block as non-isolable!)
 r2 = Ractor.new do
   $counter += 1
 rescue => err
   "global-var error: #{err.class}: #{err.message}"
 end
-puts r2.take
+puts r2.value
 
-# Unhandled exceptions inside a ractor surface on #take as Ractor::RemoteError
+# A crashed ractor raises Ractor::RemoteError in whoever waits on it,
+# with the original exception in #cause.
 boom = Ractor.new { raise "agent crashed" }
 begin
-  boom.take
+  boom.value
 rescue Ractor::RemoteError => e
   puts "remote error: #{e.cause.class}: #{e.cause.message}"
 end
+
+puts "Ractor#take still exists? #{Ractor.method_defined?(:take)}"
