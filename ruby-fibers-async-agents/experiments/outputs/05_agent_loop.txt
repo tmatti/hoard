@@ -1,0 +1,11 @@
+ruby 4.0.2, async 2.44.1
+  [ 0.20s] run 0: LLM turn 0 ok after 1 attempt(s)
+  [ 0.20s] run 0: fan out 4 tool calls
+  [ 0.31s] run 0: tools done
+  [ 0.31s] run 0: LLM error (LLM returned 500), retrying in 0.1s
+  [ 0.61s] run 0: LLM turn 1 ok after 2 attempt(s)
+  [ 0.61s] run 0: fan out 4 tool calls
+  [ 0.72s] run 0: tools done
+  [ 0.92s] run 0: LLM turn 2 ok after 1 attempt(s)
+  [ 0.92s] run 0: final: "final answer for run 0"
+  all runs done in 0.92s: ["final answer for run 0", "final answer for run 1", "final answer for run 2"]

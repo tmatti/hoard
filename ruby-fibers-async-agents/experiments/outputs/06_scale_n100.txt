@@ -1,0 +1,5 @@
+could not raise NOFILE; current [20000, 20000]
+ruby 4.0.2, async 2.44.1, N=100 runs
+  threads: wall  1.38s  run p50 1.27s  p99 1.35s  max 1.35s  RSS +21604 KB  native threads created: 900
+           peak native threads alive: 463 (baseline 2)
+  tasks:   wall  1.10s  run p50 0.99s  p99 1.07s  max 1.07s  RSS +16988 KB  native threads created: 0

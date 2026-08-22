@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ruby fibers and async for agent loops</title>
+<script>
+// No-flash theme init: explicit choice wins, else system preference.
+(function () {
+  try {
+    var saved = localStorage.getItem("theme");
+    var dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    if (dark) document.documentElement.setAttribute("data-theme", "dark");
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: oklch(0.955 0.012 90);          /* parchment */
+  --panel: oklch(0.975 0.008 90);
+  --ink: oklch(0.28 0.025 60);          /* deep walnut ink */
+  --muted: oklch(0.48 0.025 70);
+  --accent: oklch(0.44 0.09 150);       /* forest green */
+  --accent-soft: oklch(0.44 0.09 150 / 0.12);
+  --warm: oklch(0.5 0.07 65);           /* walnut/oak */
+  --line: oklch(0.85 0.02 85);
+  --code-bg: oklch(0.93 0.012 90);
+  --out-bg: oklch(0.91 0.015 120);
+  --good: oklch(0.42 0.1 150);
+  --bad: oklch(0.5 0.12 35);
+}
+:root[data-theme="dark"] {
+  --bg: oklch(0.185 0.014 70);          /* deep loam */
+  --panel: oklch(0.215 0.015 70);
+  --ink: oklch(0.88 0.015 85);
+  --muted: oklch(0.66 0.02 80);
+  --accent: oklch(0.74 0.11 150);
+  --accent-soft: oklch(0.74 0.11 150 / 0.13);
+  --warm: oklch(0.76 0.06 70);
+  --line: oklch(0.3 0.015 70);
+  --code-bg: oklch(0.155 0.012 70);
+  --out-bg: oklch(0.16 0.02 130);
+  --good: oklch(0.78 0.13 150);
+  --bad: oklch(0.72 0.13 35);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* layout */
+.wrap { display: flex; min-height: 100vh; }
+nav {
+  width: 260px; flex: 0 0 260px;
+  border-right: 1px solid var(--line);
+  padding: 1.4rem 0 2rem;
+  position: sticky; top: 0; align-self: flex-start;
+  height: 100vh; overflow-y: auto;
+  background: var(--bg);
+}
+.brand { padding: 0 1.2rem 1rem; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+.brand .path { color: var(--warm); font-size: 0.8rem; }
+.brand h1 { font-size: 0.98rem; margin: 0.3rem 0 0.2rem; font-weight: 700; line-height: 1.4; }
+.brand .sub { color: var(--muted); font-size: 0.78rem; }
+nav ul { list-style: none; margin: 0; padding: 0; }
+nav li a {
+  display: block; padding: 0.42rem 1.2rem; color: var(--muted);
+  font-size: 0.86rem; border-left: 3px solid transparent;
+}
+nav li a:hover { color: var(--ink); text-decoration: none; }
+nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
+nav li a .n { color: var(--warm); margin-right: 0.45rem; }
+.navfoot { margin-top: 1.4rem; padding: 1rem 1.2rem 0; border-top: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); }
+#theme-toggle {
+  background: none; border: 1px solid var(--line); color: var(--ink);
+  font: inherit; font-size: 0.78rem; padding: 0.3rem 0.7rem; cursor: pointer;
+  border-radius: 4px; margin-bottom: 0.8rem;
+}
+#theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+main { flex: 1; min-width: 0; padding: 2.2rem 3rem 5rem; max-width: 60rem; }
+section { display: none; }
+section.active { display: block; }
+
+h2 { font-size: 1.35rem; margin: 0 0 0.3rem; }
+h2 .prompt { color: var(--accent); }
+h3 { font-size: 1.02rem; margin: 2.2rem 0 0.6rem; color: var(--warm); }
+.meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 1.6rem; }
+p { margin: 0.85rem 0; max-width: 46rem; }
+ul.plain { max-width: 46rem; }
+li { margin: 0.3rem 0; }
+strong { font-weight: 700; }
+em { font-style: italic; }
+code {
+  background: var(--code-bg); padding: 0.08rem 0.3rem; border-radius: 3px;
+  font-size: 0.92em;
+}
+pre {
+  background: var(--code-bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 0.9rem 1rem; overflow-x: auto;
+  font-size: 0.82rem; line-height: 1.55; margin: 0.4rem 0 1.2rem;
+}
+pre code { background: none; padding: 0; }
+.filelab {
+  font-size: 0.72rem; color: var(--muted); margin: 1.1rem 0 0;
+}
+.filelab .dollar { color: var(--accent); }
+pre.out { background: var(--out-bg); border-left: 3px solid var(--accent); }
+.c { color: var(--muted); font-style: italic; }
+.k { color: var(--accent); }
+.s { color: var(--warm); }
+
+table { border-collapse: collapse; margin: 1rem 0 1.4rem; font-size: 0.84rem; }
+th, td { border: 1px solid var(--line); padding: 0.45rem 0.8rem; text-align: left; }
+th { background: var(--code-bg); font-weight: 700; }
+td.num { text-align: right; }
+.good { color: var(--good); font-weight: 700; }
+.bad { color: var(--bad); font-weight: 700; }
+
+.note {
+  border: 1px solid var(--line); border-left: 3px solid var(--warm);
+  background: var(--panel); padding: 0.7rem 1rem; border-radius: 4px;
+  font-size: 0.86rem; margin: 1.2rem 0; max-width: 46rem;
+}
+.pn { display: flex; justify-content: space-between; margin-top: 3rem; border-top: 1px solid var(--line); padding-top: 1rem; font-size: 0.85rem; }
+
+/* mobile drawer */
+#menu-btn {
+  display: none; position: fixed; top: 0.8rem; left: 0.8rem; z-index: 30;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  font: inherit; padding: 0.35rem 0.7rem; border-radius: 4px; cursor: pointer;
+}
+@media (max-width: 900px) {
+  #menu-btn { display: block; }
+  nav {
+    position: fixed; left: 0; top: 0; z-index: 20; transform: translateX(-100%);
+    transition: transform 0.2s ease; box-shadow: 4px 0 20px oklch(0 0 0 / 0.25);
+  }
+  nav.open { transform: translateX(0); }
+  main { padding: 3.6rem 1.2rem 4rem; }
+}
+</style>
+</head>
+<body>
+<button id="menu-btn" aria-label="menu">~/menu</button>
+<div class="wrap">
+<nav id="nav">
+  <div class="brand">
+    <div class="path">~/hoard/ruby-fibers-async-agents</div>
+    <h1>Fibers and async for agent loops</h1>
+    <div class="sub">Ruby 4.0.2 &middot; async 2.44.1 &middot; measured, not quoted</div>
+  </div>
+  <ul>
+    <li><a href="#start" data-tab="start"><span class="n">$</span>start here</a></li>
+    <li><a href="#fibers" data-tab="fibers"><span class="n">01</span>fibers from scratch</a></li>
+    <li><a href="#async" data-tab="async"><span class="n">02</span>the async gem</a></li>
+    <li><a href="#structured" data-tab="structured"><span class="n">03</span>structured concurrency</a></li>
+    <li><a href="#agents" data-tab="agents"><span class="n">04</span>agent loops</a></li>
+    <li><a href="#architecture" data-tab="architecture"><span class="n">05</span>the architecture around it</a></li>
+    <li><a href="#pitfalls" data-tab="pitfalls"><span class="n">06</span>pitfalls, demonstrated</a></li>
+    <li><a href="#decision" data-tab="decision"><span class="n">07</span>when fibers are wrong</a></li>
+  </ul>
+  <div class="navfoot">
+    <button id="theme-toggle">theme: <span id="theme-name">dark</span></button>
+    <div>Every number traces to a script in <code>experiments/</code> and its captured output in <code>experiments/outputs/</code>.</div>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============================== START ============================== -->
+<section id="start">
+  <h2><span class="prompt">$</span> start here</h2>
+  <div class="meta">what this is, how it was measured, and the one mental model to keep</div>
+
+  <p>This is a tutorial on Ruby fibers and the async gem, written for one purpose: running LLM agent loops. You already know what an agent loop is. The question this guide answers is what the idiomatic fiber architecture for one looks like, and why, with measurements instead of claims.</p>
+
+  <p>The mental model, up front: <strong>a fiber is a call stack you can pause</strong>. The fiber scheduler is a hook inside CRuby that pauses the current fiber whenever it would block on I/O and resumes it when the kernel says the I/O is ready. The async gem is a production implementation of that hook plus a structured-concurrency API on top. That is the entire stack. There are no keywords, no colored functions, and your existing synchronous code, including <code>Net::HTTP</code>, participates without modification. Chapter 02 proves that last claim with a stopwatch.</p>
+
+  <p>For agents this buys you one thing that matters: <strong>the run loop stays sequential code</strong>. Messages in, LLM call, tool calls, repeat. You write it exactly as you would single-threaded, and the reactor runs hundreds of those loops concurrently in one thread. The measured version: 400 concurrent 3-turn runs finish in 2.24s on fibers versus 4.54s on a thread-per-run design, with zero native threads created versus 3600 (chapter 04).</p>
+
+  <h3>environment</h3>
+  <ul class="plain">
+    <li>Ruby 4.0.2, built from source with rbenv, on Ubuntu 24.04, 4 cores, 16GB RAM.</li>
+    <li>async 2.44.1, async-http 0.101.0, protocol-http 0.71.0, installed the day this was written.</li>
+    <li>Every experiment ran in this container. Outputs are quoted verbatim in <code>experiments/outputs/</code>. Latency-sensitive numbers wobble a few percent between runs; nothing in the argument depends on that wobble.</li>
+    <li>API claims were checked against the installed gem source and the socketry docs, not memory. Two places where memory would have lied are flagged in chapters 03 and 06.</li>
+  </ul>
+
+  <div class="note">One cosmetic thing you will see in captured outputs: loading async on Ruby 4.0.2 prints <code>IO::Buffer is experimental</code> once per process on stderr. It comes from io-event and is harmless. I left it in the captures rather than pretending it isn't there.</div>
+
+  <h3>reading order</h3>
+  <p>The chapters build on each other. 01 is the machinery, 02 the library, 03 the control structures, 04 the agent loop itself, 05 the deployment story, 06 the failure modes, 07 the exit criteria. If you only read two, read 04 and 06.</p>
+</section>
+
+<!-- ============================== FIBERS ============================== -->
+<section id="fibers">
+  <h2><span class="prompt">01</span> fibers from scratch</h2>
+  <div class="meta">experiments/01_fibers_raw.rb &middot; captured: outputs/01_fibers_raw.txt</div>
+
+  <p>A fiber is a cooperative coroutine with its own stack. Own stack means a real call stack: you can be five methods deep inside a fiber, pause there, and resume later exactly where you were, locals intact. Cooperative means nothing preempts it. A fiber runs until it yields or finishes, full stop.</p>
+
+  <h3>resume and yield, raw</h3>
+  <p class="filelab"><span class="dollar">$</span> experiments/01_fibers_raw.rb, part A</p>
+  <pre><code>fiber = Fiber.new do |first|
+  puts "  fiber started, got #{first.inspect}"
+  second = Fiber.yield(first * 2)   <span class="c"># pause; hand 42 back to resume's caller</span>
+  puts "  fiber resumed, got #{second.inspect}"
+  :finished
+end
+
+fiber.resume(21)   <span class="c"># => 42, the value passed to Fiber.yield</span>
+fiber.resume(:go)  <span class="c"># => :finished, the block's return value</span></code></pre>
+  <pre class="out"><code>  fiber started, got 21
+  resume(21) returned 42
+  fiber resumed, got :go
+  resume(:go) returned :finished
+  alive? false</code></pre>
+  <p>Values flow both directions through the <code>resume</code>/<code>yield</code> pair. That is the whole primitive. Everything else in this guide is machinery for deciding <em>when</em> to call resume.</p>
+
+  <h3>why hand-scheduled fibers are unusable for real I/O</h3>
+  <p>Suppose two fibers each need to read from a socket. Neither may block, or the other starves, so each fiber has to yield its socket back to you, and you have to run <code>IO.select</code> and resume whichever fiber's socket is ready. You are now writing an event loop:</p>
+  <p class="filelab"><span class="dollar">$</span> experiments/01_fibers_raw.rb, part B</p>
+  <pre><code>fibers = readers.map.with_index do |sock, i|
+  Fiber.new do
+    Fiber.yield(sock) until sock.wait_readable(0)   <span class="c"># park: hand the socket to the loop</span>
+    puts "  fiber #{i} read: #{sock.gets.strip.inspect}"
+  end
+end
+
+pending = fibers.map { |f| [f, f.resume] }.to_h     <span class="c"># fiber => socket it waits on</span>
+until pending.empty?
+  ready, = IO.select(pending.values)
+  pending.each do |f, sock|
+    next unless ready.include?(sock)
+    result = f.resume
+    pending.delete(f) unless f.alive?
+    pending[f] = result if f.alive?
+  end
+end</code></pre>
+  <pre class="out"><code>  fiber 1 read: "second socket data" at t=0.3s
+  fiber 0 read: "first socket data" at t=0.6s
+  hand-rolled loop total: 0.6s (overlapped, but we wrote a scheduler)</code></pre>
+  <p>It works, the reads overlap, and it is already miserable. This toy handles exactly one kind of wait. Add timers, DNS, queues, child processes, error propagation, and fairness, and you have written a bad reactor. The fibers themselves also had to know they were being scheduled, which poisons every library underneath them. This is the problem the fiber scheduler interface exists to solve.</p>
+
+  <h3>Fiber::Scheduler: the hook inside CRuby</h3>
+  <p>Ruby's answer is to move the event loop <em>below</em> the language. A thread may carry a scheduler object (<code>Fiber.set_scheduler</code>). When it does, CRuby itself intercepts blocking operations in fibers created with <code>Fiber.schedule</code> and routes them to scheduler hooks instead of blocking the thread:</p>
+  <ul class="plain">
+    <li><code>sleep</code> becomes <code>kernel_sleep</code></li>
+    <li>socket and pipe waits become <code>io_wait</code> (and buffered reads/writes <code>io_read</code>/<code>io_write</code>)</li>
+    <li><code>Thread::Queue#pop</code>, <code>Mutex</code>, <code>ConditionVariable</code> become <code>block</code>/<code>unblock</code></li>
+    <li>DNS resolution becomes <code>address_resolve</code></li>
+    <li><code>Process.wait</code> becomes <code>process_wait</code>, <code>Timeout.timeout</code> becomes <code>timeout_after</code></li>
+  </ul>
+  <p>Ruby 4.0 extended the interface with <code>fiber_interrupt</code> (interrupt a fiber parked in I/O when that I/O is closed), <code>Fiber::Scheduler#yield</code>, reintroduced the <code>io_close</code> hook, and added <code>Fiber#raise(cause:)</code>. One honest footnote from this investigation: async 2.44.1 implements <code>fiber_interrupt</code> but not <code>io_close</code>. I found out by defining <code>io_close</code> in a subclass and watching Ruby 4 actually call it, then blow up on <code>super</code>. The interface moves faster than its implementations.</p>
+
+  <p>Because the interception happens inside the VM, <strong>there is no async/await and no function coloring</strong>. The same <code>sleep 0.5</code> is blocking on a bare thread and cooperative under a scheduler. Same bytecode, different thread state:</p>
+  <p class="filelab"><span class="dollar">$</span> experiments/01_fibers_raw.rb, part C</p>
+  <pre><code><span class="c"># identical code, run twice</span>
+2.times { Fiber.new { sleep 0.5 }.resume }          <span class="c"># plain fibers</span>
+
+Thread.new do
+  Fiber.set_scheduler(Async::Scheduler.new)
+  2.times { Fiber.schedule { sleep 0.5 } }          <span class="c"># scheduled fibers</span>
+end.join</code></pre>
+  <pre class="out"><code>  no scheduler:   2 x sleep(0.5) sequentially = 1.0s
+  with scheduler: 2 x sleep(0.5) overlapped   = 0.5s</code></pre>
+
+  <h3>proof of what gets intercepted</h3>
+  <p>Part D subclasses <code>Async::Scheduler</code> with counters on each hook, then runs a sleep, a TCP round trip, a <code>Queue#pop</code>, and a DNS lookup:</p>
+  <pre class="out"><code>  address_resolve  fired 1 time(s)
+  block            fired 3 time(s)
+  io_wait          fired 2 time(s)
+  kernel_sleep     fired 2 time(s)
+  unblock          fired 1 time(s)</code></pre>
+  <p>Nothing in the fiber code mentioned the scheduler. That is the property everything in the next six chapters rests on.</p>
+
+  <div class="note">Small trap that cost me a stack trace: a scheduler object must be created on the thread that runs it. Build it elsewhere and the first hook dies with <code>FiberError: fiber called across threads</code>.</div>
+
+  <div class="pn"><span></span><a href="#async" data-tab="async">02 the async gem &rarr;</a></div>
+</section>
+
+<!-- ============================== ASYNC ============================== -->
+<section id="async">
+  <h2><span class="prompt">02</span> the async gem</h2>
+  <div class="meta">experiments/02_task_cost.rb, 03_park_proof.rb &middot; captured: outputs/</div>
+
+  <p>You will never call <code>Fiber.set_scheduler</code> in application code. The async gem owns that. It gives you three things: a scheduler implementation (epoll or io_uring underneath, via io-event), a <code>Task</code> abstraction over scheduled fibers, and the structured-concurrency toolkit in chapter 03.</p>
+
+  <h3>Async, Sync, tasks</h3>
+  <pre><code>require "async"
+
+Sync do |task|                    <span class="c"># enter a reactor, block until the block returns</span>
+  child = task.async { fetch_a } <span class="c"># spawn a child task, returns immediately</span>
+  other = task.async { fetch_b }
+  [child.wait, other.wait]        <span class="c"># wait is how results and errors come back</span>
+end                               <span class="c"># reactor also waits for any un-waited children</span></code></pre>
+  <p>The rules that matter:</p>
+  <ul class="plain">
+    <li><code>Sync do ... end</code> runs the block in a reactor and returns its value. If a reactor already exists it reuses it, so a library method wrapped in <code>Sync</code> composes from both worlds. This is the entry point you want almost everywhere.</li>
+    <li><code>Async do ... end</code> at the top level creates a reactor and returns the task. Inside a reactor it creates a child task. <code>task.async</code> does the same with the parent spelled out.</li>
+    <li><code>Task#wait</code> returns the task's value or re-raises its exception. Ruby, not the gem, decides when fibers swap; you never call resume.</li>
+  </ul>
+
+  <h3>what a task costs versus a thread</h3>
+  <p>5000 sleeping threads against 5000 parked tasks, wall time to create and resident memory growth:</p>
+  <p class="filelab"><span class="dollar">$</span> ruby 02_task_cost.rb</p>
+  <pre class="out"><code>5000 of each:
+  threads: created in 2.124s (424.7 us each), RSS grew 134436 KB (26.9 KB each)
+  tasks:   created in 0.137s (27.4 us each), RSS grew 68664 KB (13.7 KB each)</code></pre>
+  <table>
+    <tr><th></th><th>creation</th><th>resident memory</th><th>scheduled by</th></tr>
+    <tr><td>thread</td><td class="num">425 us</td><td class="num">26.9 KB</td><td>kernel, preemptive</td></tr>
+    <tr><td>task</td><td class="num">27 us</td><td class="num">13.7 KB</td><td>reactor, at I/O points</td></tr>
+  </table>
+  <p>Two honest readings. First, creation is 15x cheaper and that compounds: an agent run that fans out tools creates tasks constantly, and 27us means you stop thinking about it. Second, the memory gap is only 2x, not the 100x that fiber folklore promises. Fiber stacks reserve a lot of virtual space but only touched pages become resident, and threads on Linux are similar; folklore compares reserved sizes. The real thread costs at scale are creation latency, kernel scheduling churn, and the GVL, and chapter 04 shows them.</p>
+
+  <h3>plain Net::HTTP parks the fiber</h3>
+  <p>The claim from chapter 01, now with a stopwatch: an in-process HTTP server answers after 300ms, and ten stock <code>Net::HTTP</code> requests run inside one reactor, next to a heartbeat task ticking every 100ms.</p>
+  <p class="filelab"><span class="dollar">$</span> ruby 03_park_proof.rb</p>
+  <pre class="out"><code>10 x Net::HTTP (server latency 0.3s): 0.31s total, codes {"200" => 10}
+10 x raw TCPSocket read:               0.31s total, 590 bytes
+heartbeat ticks while requests were in flight: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]</code></pre>
+  <p>Ten requests, one thread, 0.31 seconds, and the reactor stayed responsive throughout. Raw sockets behave identically. The practical consequence for an agent framework: <strong>your existing HTTP client layer probably needs zero changes to run concurrently</strong>. You want async-http for two specific reasons, streaming response bodies (chapter 04) and connection pooling, not for parking. Rewriting a working client layer "to be async" is work the scheduler already did for you.</p>
+
+  <div class="pn"><a href="#fibers" data-tab="fibers">&larr; 01 fibers</a><a href="#structured" data-tab="structured">03 structured concurrency &rarr;</a></div>
+</section>
+
+<!-- ============================== STRUCTURED ============================== -->
+<section id="structured">
+  <h2><span class="prompt">03</span> structured concurrency</h2>
+  <div class="meta">experiments/04_structured.rb &middot; captured: outputs/04_structured.txt</div>
+
+  <p>This is the chapter that earns its keep in an agent framework. Tasks form a tree: every task has a parent, and the tree is how you cancel a whole run, bound a fan-out, and keep errors from vanishing. The three tools are <code>Async::Barrier</code> (wait for a group), <code>Async::Semaphore</code> (cap a group's concurrency), and <code>Task#with_timeout</code> (deadline a subtree).</p>
+
+  <h3>the fan-out idiom: barrier + semaphore</h3>
+  <p>The agent-shaped requirement: fan out 32 tool calls, at most 8 in flight. The semaphore takes the barrier as its parent, so tasks it spawns register with both:</p>
+  <pre><code>barrier   = Async::Barrier.new
+semaphore = Async::Semaphore.new(8, parent: barrier)
+
+32.times do |i|
+  semaphore.async { run_tool(i) }   <span class="c"># parks here when 8 are in flight</span>
+end
+barrier.wait                        <span class="c"># all 32 done, or an error re-raised</span></code></pre>
+  <p>Measured with 0.25s per call, plus a live count of in-flight tasks:</p>
+  <pre class="out"><code>== B: semaphore, 32 calls, 8 slots, 0.25s each ==
+  expected ceil(32/8) * 0.25 = 1.0s; measured 1.0s, peak in flight 8</code></pre>
+  <p>Four exact waves. The semaphore admits the ninth call the instant one of the first eight finishes, and the peak never exceeded the cap.</p>
+
+  <h3>deadlines</h3>
+  <pre><code>task.with_timeout(30) do
+  llm_call(messages)     <span class="c"># raises Async::TimeoutError at the deadline</span>
+end</code></pre>
+  <pre class="out"><code>== C: with_timeout ==
+  Async::TimeoutError after 0.3s (deadline was 0.3s)</code></pre>
+  <p><code>with_timeout</code> is implemented by the scheduler as a timer on the fiber, so it fires while the fiber is parked in any intercepted operation, and it costs no extra thread. This is your per-turn deadline. What it cannot interrupt is a fiber that never yields; that failure mode is measured in chapter 06.</p>
+
+  <h3>cancellation: stop propagates down the tree</h3>
+  <p>One naming note so the docs and this guide line up: async 2.44 renamed stopping to cancellation. <code>Task#stop</code> and <code>Task#cancel</code> both work, <code>Async::Stop</code> is now <code>Async::Cancel</code>, and <code>Barrier#stop</code> is a deprecated alias for <code>Barrier#cancel</code>. I verified all of this against the installed gem source, and I will write <code>stop</code> because that is what most existing code says.</p>
+  <p>The experiment builds a three-level tree, parks every task in a sleep, then stops the root:</p>
+  <pre class="out"><code>== D: stop propagation and ensure ==
+  stop returned in 0.3ms
+  ensure order: ["parent ensure", "child-0 ensure", "grandchild-0 ensure",
+                 "child-1 ensure", "grandchild-1 ensure"]
+  parent stopped? true</code></pre>
+  <p>Three things worth internalizing. Stop is fast, 0.3ms for the tree. Stop reaches every descendant with no bookkeeping on your side; cancelling an agent run is <code>run_task.stop</code> and nothing else. And <code>ensure</code> blocks run on the way down, parents before children here, with some cancels deferred one loop pass. Cancellation is delivered by raising inside the parked fiber, which leads to the two rules that keep cleanup correct:</p>
+  <ul class="plain">
+    <li><code>Async::Cancel</code> derives from <code>Exception</code>, not <code>StandardError</code>. Your <code>rescue =&gt; e</code> retry blocks will not eat cancellation. This is deliberate and it is why sloppy rescues mostly stay safe.</li>
+    <li><code>ensure</code> is your guarantee. A task stopped mid-socket-read runs its ensure with the socket intact:</li>
+  </ul>
+  <pre class="out"><code>== D2: ensure runs when stopped mid-socket-read ==
+  reader stopped while parked in read; state=:ensure_ran, socket closed=true</code></pre>
+
+  <h3>error propagation</h3>
+  <p>A child that raises does not interrupt its siblings on its own. The error surfaces when someone waits. <code>barrier.wait</code> waits tasks in completion order and re-raises the first failure; you then decide what happens to the survivors:</p>
+  <pre><code>begin
+  barrier.wait
+ensure
+  barrier.stop     <span class="c"># kill surviving siblings; without this they run to completion</span>
+end</code></pre>
+  <pre class="out"><code>== E: error propagation through a barrier ==
+  barrier.wait raised: "tool 1 exploded"
+  siblings that completed: [] (stopped before their 5s sleep ended)</code></pre>
+  <p>My opinion on the right agent semantics: fail the turn, stop the surviving tool calls, and report the tool error into the transcript. Letting orphan tool calls run to completion after the turn already failed burns tokens and clouds telemetry, and as chapter 06 shows, unwaited failures degrade into log noise you will not see.</p>
+
+  <div class="pn"><a href="#async" data-tab="async">&larr; 02 the async gem</a><a href="#agents" data-tab="agents">04 agent loops &rarr;</a></div>
+</section>
+
+<!-- ============================== AGENTS ============================== -->
+<section id="agents">
+  <h2><span class="prompt">04</span> agent loops</h2>
+  <div class="meta">experiments/05_agent_loop.rb, 06_scale.rb, 07_streaming.rb, fake_llm_server.rb</div>
+
+  <p>Everything so far assembles into one shape, and the shape is boring on purpose: <strong>one task per agent run, and the run's turns are plain sequential code inside that task</strong>. No state machine, no callback chain, no turn queue. The loop reads exactly like your single-threaded framework already reads; the reactor is what makes hundreds of them overlap.</p>
+
+  <h3>the canonical loop</h3>
+  <p class="filelab"><span class="dollar">$</span> experiments/05_agent_loop.rb, condensed</p>
+  <pre><code>def run_agent(port, run, task: Async::Task.current)
+  messages = seed_messages
+  turn = 0
+  loop do
+    response = task.with_timeout(TURN_DEADLINE) do   <span class="c"># deadline per turn</span>
+      call_llm(port, run:, turn:)                    <span class="c"># retries inside</span>
+    end
+
+    if (tool_calls = response["tool_calls"])
+      barrier   = Async::Barrier.new
+      semaphore = Async::Semaphore.new(8, parent: barrier)
+      results = tool_calls.map { |tc| semaphore.async { call_tool(port, run, tc) } }
+      barrier.wait                                   <span class="c"># chapter 03, verbatim</span>
+      messages.concat(results.map(&amp;:wait).map { |r| tool_message(r) })
+      turn += 1
+    else
+      return response["content"]
+    end
+  end
+end
+
+Sync do |task|
+  runs = agents.map { |i| task.async { run_agent(port, i) } }
+  runs.map(&amp;:wait)
+end</code></pre>
+  <p>The retry deserves a look because it shows why fibers change nothing about how you write it:</p>
+  <pre><code>rescue =&gt; e
+  raise if attempts >= 3
+  sleep 0.1 * (2 ** (attempts - 1))   <span class="c"># parks the fiber; 400 other runs keep going</span>
+  retry</code></pre>
+  <p>That <code>sleep</code> is the entire backoff story. Under threads, a sleeping retry holds a thread hostage. Here it parks a 14KB fiber. The demo runs three concurrent agents against a deterministic fake LLM server (0.2s per LLM call, 0.1s per tool, one injected 500 on run 0 turn 1), and the timeline for run 0 shows every mechanism firing:</p>
+  <pre class="out"><code>  [ 0.20s] run 0: LLM turn 0 ok after 1 attempt(s)
+  [ 0.20s] run 0: fan out 4 tool calls
+  [ 0.31s] run 0: tools done
+  [ 0.31s] run 0: LLM error (LLM returned 500), retrying in 0.1s
+  [ 0.61s] run 0: LLM turn 1 ok after 2 attempt(s)
+  [ 0.61s] run 0: fan out 4 tool calls
+  [ 0.72s] run 0: tools done
+  [ 0.92s] run 0: LLM turn 2 ok after 1 attempt(s)
+  [ 0.92s] run 0: final: "final answer for run 0"
+  all runs done in 0.92s: ["final answer for run 0", "final answer for run 1",
+                           "final answer for run 2"]</code></pre>
+  <p>Three runs, total wall time equal to one run's critical path, including the backoff. Cancelling any run is <code>runs[i].stop</code>: the LLM socket read, the tool subtree, and the backoff sleep all unwind through their ensure blocks (chapter 03).</p>
+
+  <h3>thread-per-run versus task-per-run, at scale</h3>
+  <p>The same workload both ways: N runs, each 3 LLM calls plus 8 tool calls, ideal critical path 0.8s per run, same fake server, same payloads. Thread mode is the design you would write without a reactor: one thread per run, one thread per tool call.</p>
+  <p class="filelab"><span class="dollar">$</span> ruby 06_scale.rb (N=400) and N=100 ruby 06_scale.rb</p>
+  <pre class="out"><code>N=400:
+  threads: wall  4.54s  run p50 4.37s  p99 4.41s  RSS +74608 KB  native threads created: 3600
+           peak native threads alive: 979
+  tasks:   wall  2.24s  run p50 2.10s  p99 2.14s  RSS +54180 KB  native threads created: 0
+N=100:
+  threads: wall  1.38s  run p50 1.27s
+  tasks:   wall  1.10s  run p50 0.99s</code></pre>
+  <table>
+    <tr><th>N runs</th><th>threads wall</th><th>tasks wall</th><th>thread penalty</th></tr>
+    <tr><td class="num">100</td><td class="num">1.38s</td><td class="num">1.10s</td><td class="num">1.25x</td></tr>
+    <tr><td class="num">400</td><td class="num">4.54s</td><td class="num">2.24s</td><td class="num bad">2.0x</td></tr>
+  </table>
+  <p>The gap widens with N, which is the point: thread-per-run degrades as you scale and task-per-run mostly doesn't. At 400 runs the thread design created 3600 native threads (979 alive at peak) and paid for it in GVL churn and kernel scheduling; the fiber design created none. Both modes sit above the 0.8s ideal because a single fake-server process saturates around 4400 requests in two seconds, but it is the same server for both, so the comparison is fair even though the absolute numbers are pessimistic. And note what the fiber version did <em>not</em> require: the run loop is the identical sequential code in both modes. The thread version needed the same restructuring plus a thread budget I had to pick per tool call.</p>
+
+  <h3>streaming: SSE with async-http</h3>
+  <p>Parking covers request/response. Streaming tokens is the one place you outgrow <code>Net::HTTP</code> ergonomics, and it is where async-http earns its dependency: <code>response.body.read</code> returns each chunk as it arrives, inside the reactor, so a streaming turn is still sequential code.</p>
+  <p class="filelab"><span class="dollar">$</span> experiments/07_streaming.rb, condensed</p>
+  <pre><code>internet = Async::HTTP::Internet.new
+internet.get(url) do |response|
+  buffer = +""
+  while (chunk = response.body.read)          <span class="c"># parks until the next chunk</span>
+    buffer &lt;&lt; chunk
+    emit_deltas(buffer)                       <span class="c"># split on \n\n, parse data: lines</span>
+  end
+end</code></pre>
+  <p>Against the fake server's SSE endpoint, 20 deltas at a 30ms interval:</p>
+  <pre class="out"><code>  single stream: 20 deltas + [DONE]
+  first delta at 0.032s, last at 0.607s
+  inter-arrival: mean 28.8ms (server interval 30ms)
+
+  three concurrent streams, first 12 arrivals tagged by stream:
+  s0 s1 s0 s2 s0 s1 s2 s0 s1 s0 s2 s1 ... (18 total in 0.24s)</code></pre>
+  <p>First token 32ms after the request, arrivals tracking the server's emit rate, and three concurrent streams interleaving through one reactor. In an agent runner each delta becomes an event on the publisher queue (chapter 05) and the UI sees tokens with no buffering stage in between.</p>
+
+  <div class="pn"><a href="#structured" data-tab="structured">&larr; 03 structured</a><a href="#architecture" data-tab="architecture">05 architecture &rarr;</a></div>
+</section>
+
+<!-- ============================== ARCHITECTURE ============================== -->
+<section id="architecture">
+  <h2><span class="prompt">05</span> the architecture around the loop</h2>
+  <div class="meta">experiments/08_blocking_and_offload.rb &middot; captured: outputs/08_blocking_and_offload.txt</div>
+
+  <h3>where the reactor lives</h3>
+  <p>Three placements, and I will pick one rather than shrug:</p>
+  <ul class="plain">
+    <li><strong>A dedicated runner process: one Async reactor consuming runs from a queue. This is the one to build.</strong> Your web tier enqueues a run id; the runner picks it up, spawns a task per run under one supervising barrier, and publishes events outward. One process owns agent concurrency, its limits are explicit (a top-level semaphore is your global run cap), cancellation is a message that finds the task and stops it, and nothing about your web stack changes. Chapter 04's numbers say a single such process comfortably holds hundreds of concurrent runs, because the runs are almost pure I/O wait.</li>
+    <li><strong>Runs inside Sidekiq jobs: workable, and a reasonable migration step, but a ceiling.</strong> Wrapping each job in <code>Sync do ... end</code> works fine; the fiber machinery composes with threads. But Sidekiq's thread count becomes your run cap (25 threads means 25 runs, against hundreds per reactor), each job gets its own tiny reactor so nothing is shared, and long-lived runs fight Sidekiq's assumptions about job duration, shutdown, and retries. Use it while a run is one bounded job; move to a runner when runs become the product.</li>
+    <li><strong>Falcon, the whole app fiber-native: the biggest commitment, and not where I would start.</strong> Falcon puts your entire request path on the reactor, which is coherent, but it means every gem in the app must behave under a scheduler, and one blocking driver anywhere stalls unrelated requests (measured below). Adopt it when the application is substantially agents; do not adopt it to run agent loops next to a conventional Rails app when a runner process gets you the benefit without betting the web tier.</li>
+  </ul>
+
+  <h3>the database seam</h3>
+  <p>The reactor's weakness is any C extension that blocks without consulting the scheduler. A database driver is the classic case. Simulated with <code>Fiber.blocking</code> (which is exactly what a non-cooperating driver looks like to the reactor), eight 50ms queries from eight tasks, with a 20ms heartbeat running:</p>
+  <p class="filelab"><span class="dollar">$</span> ruby 08_blocking_and_offload.rb</p>
+  <pre class="out"><code>== A: blocking driver in the reactor ==
+  8 x 50ms blocking queries: 0.40s wall (fully serialized)
+  worst heartbeat gap: 50ms (should be ~20ms)</code></pre>
+  <p>Fully serialized, and every other fiber in the process freezes for the duration of each query. A 2-second reporting query means every agent run in the reactor stalls 2 seconds. Nothing warns you; latency just appears everywhere at once.</p>
+  <p>What is actually safe:</p>
+  <ul class="plain">
+    <li><strong>pg cooperates.</strong> Verified from its docs: "Pg is fully compatible with Fiber.scheduler introduced in Ruby-3.0 since pg-1.3.0." It drives libpq in nonblocking mode and routes waits through the scheduler, so Postgres queries park the fiber like any other I/O.</li>
+    <li><strong>Assume nothing else does until you have run it next to a heartbeat.</strong> The 10-line heartbeat pattern in experiment 08 is the test: if the gap grows past your tick interval while the driver waits, it blocks. This applies to MySQL drivers, Redis clients in C, and anything vendored.</li>
+    <li><strong>For a blocking driver, offload.</strong> Run the call on a thread and park the fiber on <code>Thread::Queue#pop</code>, which the scheduler intercepts (the <code>block</code> hook from chapter 01):</li>
+  </ul>
+  <pre><code>def offload
+  queue = Thread::Queue.new
+  Thread.new { queue &lt;&lt; begin; [:ok, yield]; rescue Exception =&gt; e; [:error, e]; end }
+  tag, value = queue.pop        <span class="c"># parks this fiber; reactor keeps running</span>
+  tag == :error ? raise(value) : value
+end</code></pre>
+  <pre class="out"><code>== B: offload to a thread, park the fiber on Queue#pop ==
+  same 8 queries via offload: 0.05s wall (overlapped)
+  worst heartbeat gap: 20ms</code></pre>
+  <p>Same work, 8x faster, heartbeat untouched. In production give the offload a bounded thread pool rather than a thread per call, and put a semaphore in front of it. For an agent runner the honest sizing note is that DB traffic is checkpoints and event writes, small and frequent, so a pool of a handful of threads covers hundreds of runs. Also keep transactions away from awaits: holding a connection open across a 20-second LLM call is how you drain a pool with 8 connections and 300 runs.</p>
+
+  <h3>outbound events: one publisher task</h3>
+  <p>Agent runs emit deltas, tool events, and terminal status, and something has to ship them (websocket fanout, Redis, whatever). The idiomatic shape is a single publisher task fed by a bounded queue. Bounded is the load-bearing word: an unbounded queue converts a slow event sink into unbounded memory growth; a bounded one converts it into backpressure on the producers, which is what you want.</p>
+  <pre><code>events = Async::LimitedQueue.new(16)     <span class="c"># producers block when it fills</span>
+
+publisher = task.async do
+  loop do
+    batch = [events.dequeue]
+    batch &lt;&lt; events.dequeue while !events.empty? &amp;&amp; batch.size &lt; 10
+    deliver(batch)                        <span class="c"># one round trip for up to 10 events</span>
+    break if batch.include?(:run_terminal)
+  end
+end</code></pre>
+  <pre class="out"><code>== C1: publisher with batching and backpressure ==
+  producer emitted 60 events, spent 81ms blocked on the full queue (backpressure, nothing dropped)
+  publisher sent 61 events in batches of [10, 10, 10, 10, 10, 10, 1]
+
+== C2: terminal event survives cancelling the run ==
+  run cancelled after 46 of 1000 events; publisher still delivered 47 incl. terminal: true</code></pre>
+  <p>C2 is the rule I would tattoo on any event system: <strong>never drop terminal events</strong>. The producer's <code>ensure</code> enqueues the terminal marker, and ensure runs on cancellation (chapter 03), so even a run killed mid-flight tells the UI it died. Drop a delta and a token flickers; drop a terminal and a run spins forever in the UI. Delta events can reasonably be coalesced under pressure; terminal events go through, always.</p>
+
+  <h3>CPU-heavy stages</h3>
+  <p>A fiber yields nothing to a busy CPU; embeddings, big JSON munging, or a tokenizer written in Ruby will starve the reactor exactly like the blocking driver did (chapter 06 measures a 1065ms freeze). The escape hatch is the same <code>offload</code> helper: hand the work to a thread (fine if the work releases the GVL, as C extensions doing real computation usually do) or to a subprocess (when it does not), and park the fiber on the queue. The reactor's job is waiting well; let it wait on your CPU work too.</p>
+
+  <div class="pn"><a href="#agents" data-tab="agents">&larr; 04 agent loops</a><a href="#pitfalls" data-tab="pitfalls">06 pitfalls &rarr;</a></div>
+</section>
+
+<!-- ============================== PITFALLS ============================== -->
+<section id="pitfalls">
+  <h2><span class="prompt">06</span> pitfalls, demonstrated</h2>
+  <div class="meta">experiments/09_pitfalls.rb &middot; captured: outputs/09_pitfalls.txt</div>
+
+  <p>Each of these is a script that misbehaves, not a warning label. Run them yourself; the failure modes are much stickier once you have watched them.</p>
+
+  <h3>blocking the reactor with CPU</h3>
+  <pre class="out"><code>== A: CPU starves the reactor ==
+  30M iterations of x += 1 ran on the reactor; worst heartbeat gap 1065ms (target 20ms)</code></pre>
+  <p>One second of plain Ruby arithmetic froze every fiber in the process for one second. There is no partial credit: the scheduler only runs at yield points, and pure computation has none. The fix is the offload pattern from chapter 05. The insidious version of this is not your code but a C extension that computes without releasing the GVL, and the detection tool is the same heartbeat-next-to-suspect-code trick.</p>
+
+  <h3>Timeout.timeout: mostly rehabilitated on Ruby 4, with one silent failure</h3>
+  <p>The folklore says <code>Timeout.timeout</code> inside a reactor is a corruption hazard because its monitor thread raises into whatever fiber happens to be running. I went looking for that failure and could not produce it, and the reason is in Ruby 4's stdlib: <code>timeout.rb</code> line 284 delegates to <code>scheduler.timeout_after</code> whenever a fiber scheduler is set. Inside a reactor, <code>Timeout.timeout</code> <em>is</em> a scheduler timeout now. Measured:</p>
+  <pre class="out"><code>== B: Timeout.timeout vs task.with_timeout ==
+  Timeout.timeout(0.3) around sleep(5): Timeout::Error after 0.30s
+  Timeout.timeout(0.3) around a BLOCKING sleep(1): no error, returned after 1.00s
+  task.with_timeout(0.3) around sleep(5): Async::TimeoutError after 0.30s
+
+== B2: does Timeout.timeout hit an innocent bystander? ==
+  task A (armed the timeout): :a_timed_out
+  task B (innocent CPU work): :b_finished, caught NilClass: nil</code></pre>
+  <p>So: it fires on time, it raises in the right fiber, and the bystander test came back clean. Two real problems remain. The middle line is the silent one: around a blocking call, the timeout <strong>did nothing at all</strong>, no error, just a return after the full second, because a timeout that can only fire at yield points never got one. And the exception classes differ (<code>Timeout::Error</code> versus <code>Async::TimeoutError</code>), so mixed rescue code gets messy. My advice: standardize on <code>task.with_timeout</code> in agent code because it is explicit about which task owns the deadline, and treat any timeout as unable to interrupt blocking C calls, because none of them can.</p>
+
+  <h3>thread habits that don't transfer</h3>
+  <pre class="out"><code>== C: fiber-local vs thread-local vs Fiber[] ==
+  in child task:
+    Thread.current[:tenant]              = nil                   (fiber-local!)
+    Thread.current.thread_variable_get   = "true-thread-local"
+    Fiber[:tenant]                       = "fiber-storage"       (inherited)</code></pre>
+  <p><code>Thread.current[]</code> has always been fiber-local, and under a reactor that stops being a pedantic footnote: every task is a new fiber, so per-"thread" context set in the parent silently reads as nil in children. This is exactly where request ids and tenant scoping go missing. The right tool is <code>Fiber[]</code> (fiber storage): child fibers inherit it, so setting <code>Fiber[:run_id]</code> at the top of a run makes it visible in every tool-call task under that run, and differently per concurrent run. True thread-locals (<code>thread_variable_get</code>) are shared by every fiber on the thread, which under a reactor means shared by every run; almost never what you want.</p>
+  <p>Locks invert similarly. You need less locking, because tasks never preempt each other between yield points, and more care at awaits, because every I/O call is a context switch. Measured:</p>
+  <pre class="out"><code>== D: atomicity: single ops fine, lost updates across awaits ==
+  10 tasks x 100 bare increments: 1000/1000 (no preemption between yield points)
+  same, with an await between read and write: 101/1000 (lost updates, no threads involved)</code></pre>
+  <p>899 lost updates with zero threads. Read-modify-write with an HTTP call in the middle is the agent-shaped version: fetch run state, call the LLM, write run state back. Don't reach for a Mutex out of thread habit; restructure so state mutations don't straddle awaits, or route mutations through one owning task (the publisher pattern from chapter 05 is also this).</p>
+
+  <h3>forgetting the wait</h3>
+  <pre class="out"><code>== E: forgetting the wait ==
+  spawned 3 tools, one raised, caller saw nothing (error went to the console logger above)
+  Sync block with a forgotten sleeping child returned after 1.00s: the reactor won't abandon it</code></pre>
+  <p>Fire-and-forget tasks fail in two directions at once. Errors: an unwaited task's exception surfaces only as a warn line from async's logger, so a failed tool call becomes invisible to the run that spawned it. Lifetimes: the reactor will not abandon a forgotten child, so your "returned" method still holds the reactor open until the orphan finishes. The discipline is mechanical: every <code>async</code> belongs to a barrier (or gets an explicit <code>wait</code>), and every barrier gets waited or stopped before the spawning scope returns. In review, an <code>async</code> without a visible owner is a bug until proven otherwise.</p>
+
+  <h3>testing async code deterministically</h3>
+  <pre class="out"><code>== F: deterministic tests: inject the transport ==
+  3 runs, events ["ran a", "ran b", "final"]
+  identical across runs: true, mean duration 0.19ms (no server, no sleeps, no flakes)</code></pre>
+  <p>The loop from chapter 04 takes its HTTP layer as an injectable. Hand it lambdas, wrap the test body in <code>Sync</code>, and the whole turn (fan-out, barrier, message assembly) executes deterministically in under a millisecond, because with no real I/O the reactor runs tasks in a stable order. No sleeps in tests, no "wait for the future", no timing asserts. Test timeout behavior the same way: inject a transport that parks forever (<code>sleep</code>) and assert <code>Async::TimeoutError</code>; it fires at the deadline without wall-clock slop mattering. The one thing I would not do is assert on inter-task ordering across genuinely concurrent I/O, because that ordering is real nondeterminism; assert on the joined result instead.</p>
+
+  <div class="pn"><a href="#architecture" data-tab="architecture">&larr; 05 architecture</a><a href="#decision" data-tab="decision">07 when fibers are wrong &rarr;</a></div>
+</section>
+
+<!-- ============================== DECISION ============================== -->
+<section id="decision">
+  <h2><span class="prompt">07</span> when fibers are the wrong tool</h2>
+  <div class="meta">the exit criteria, and what to use instead</div>
+
+  <p>Fibers multiplex <em>waiting</em>. Everything measured in this guide, 400 runs in one thread, 27us tasks, clean cancellation, follows from runs that are almost entirely I/O wait. When the work is not waiting, the model gives you nothing and takes the reactor hostage:</p>
+  <ul class="plain">
+    <li><strong>CPU-bound work.</strong> One reactor is one thread. 30M additions froze every run for 1065ms (chapter 06), and adding fibers to a CPU-bound stage adds concurrency without adding throughput. If profiling says your agent pipeline spends its time computing (local embeddings, reranking, parsing megabytes of tool output), fibers are the wrong axis entirely.</li>
+    <li><strong>True parallelism.</strong> The GVL means even threads only parallelize C extensions and I/O; Ruby-level computation needs multiple processes (or Ractors) to use multiple cores.</li>
+  </ul>
+  <p>For those cases: put CPU stages behind the offload helper into a small thread pool when the work releases the GVL, and into worker <em>processes</em> when it does not; a forked pool fed by a queue remains the most boring and reliable parallelism Ruby has, and boring is a feature in a runner that must not lose runs. Ractors are the in-process alternative if you want to explore them, but that is a different investigation (there is one sitting next to this folder in the repo). The composition rule that keeps it all sane: <strong>the reactor owns waiting, processes own computing, and queues are the seam between them</strong>, in both directions.</p>
+
+  <h3>the one-table summary</h3>
+  <table>
+    <tr><th>workload</th><th>tool</th><th>because</th></tr>
+    <tr><td>hundreds of concurrent agent runs (I/O wait)</td><td class="good">one reactor, task per run</td><td>2.24s vs 4.54s at N=400, zero threads, structured cancellation</td></tr>
+    <tr><td>tool fan-out inside a run</td><td class="good">barrier + semaphore</td><td>exact concurrency cap, errors re-raised at the wait</td></tr>
+    <tr><td>a few dozen concurrent jobs, existing thread infra</td><td>threads are fine</td><td>1.25x penalty at N=100; below that it shrinks further</td></tr>
+    <tr><td>blocking C driver, CPU stage</td><td>thread/process + Queue#pop</td><td>reactor stalls measured at the full duration of the blocking call</td></tr>
+    <tr><td>CPU-bound pipeline</td><td class="bad">not fibers</td><td>one thread; processes or Ractors for real cores</td></tr>
+  </table>
+
+  <p>That is the whole guide. The canonical loop in chapter 04 plus the runner shape in chapter 05 is a complete architecture for an agent framework; the rest is discipline about the seams. Everything above reproduces with <code>ruby experiments/&lt;n&gt;.rb</code> on any Ruby 4 with the async gem, and I would genuinely encourage rerunning experiment 06 on your own hardware before believing me.</p>
+
+  <div class="pn"><a href="#pitfalls" data-tab="pitfalls">&larr; 06 pitfalls</a><span></span></div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function () {
+  var sections = document.querySelectorAll("main section");
+  var links = document.querySelectorAll("nav a[data-tab]");
+  var nav = document.getElementById("nav");
+
+  function show(id) {
+    var found = false;
+    sections.forEach(function (s) { s.classList.toggle("active", s.id === id && (found = true)); });
+    if (!found) { id = "start"; document.getElementById("start").classList.add("active"); }
+    links.forEach(function (a) { a.classList.toggle("active", a.dataset.tab === id); });
+    nav.classList.remove("open");
+    window.scrollTo(0, 0);
+  }
+
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-tab]");
+    if (!a) return;
+    e.preventDefault();
+    history.pushState(null, "", "#" + a.dataset.tab);
+    show(a.dataset.tab);
+  });
+  window.addEventListener("popstate", function () { show(location.hash.slice(1) || "start"); });
+  show(location.hash.slice(1) || "start");
+
+  // theme toggle
+  var btn = document.getElementById("theme-toggle");
+  var label = document.getElementById("theme-name");
+  function currentDark() { return document.documentElement.getAttribute("data-theme") === "dark"; }
+  function paint() { label.textContent = currentDark() ? "dark" : "light"; }
+  btn.addEventListener("click", function () {
+    var dark = !currentDark();
+    if (dark) document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+    try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
+    paint();
+  });
+  paint();
+
+  // mobile drawer
+  document.getElementById("menu-btn").addEventListener("click", function () {
+    nav.classList.toggle("open");
+  });
+})();
+</script>
+</body>
+</html>

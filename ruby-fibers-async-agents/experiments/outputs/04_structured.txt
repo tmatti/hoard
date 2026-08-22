@@ -1,0 +1,24 @@
+04_structured.rb:89: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+{"time":"2026-08-22T16:25:30+00:00","severity":"warn","process_id":24928,"fiber_id":32,"pid":24928,"subject":"Async::Task","object_id":40,"message":"Task may have ended with unhandled exception.","event":{"type":"failure","root":"/home/user/hoard/ruby-fibers-async-agents/experiments","class":"RuntimeError","message":"tool 1 exploded","backtrace":["04_structured.rb:107:in 'block (3 levels) in <main>'","/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/async-2.44.1/lib/async/barrier.rb:63:in 'block in Async::Barrier#async'","/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/async-2.44.1/lib/async/task.rb:225:in 'block in Async::Task#run'","/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/async-2.44.1/lib/async/task.rb:523:in 'block in Async::Task#schedule'"]}}
+ruby 4.0.2, async 2.44.1
+
+== A: barrier ==
+  collected: ["tool-0", "tool-1", "tool-2", "tool-3", "tool-4"]
+
+== B: semaphore, 32 calls, 8 slots, 0.25s each ==
+  expected ceil(32/8) * 0.25 = 1.0s; measured 1.0s, peak in flight 8
+
+== C: with_timeout ==
+  Async::TimeoutError after 0.3s (deadline was 0.3s)
+
+== D: stop propagation and ensure ==
+  stop returned in 0.3ms
+  ensure order: ["parent ensure", "child-0 ensure", "grandchild-0 ensure", "child-1 ensure", "grandchild-1 ensure"]
+  parent stopped? true
+
+== D2: ensure runs when stopped mid-socket-read ==
+  reader stopped while parked in read; state=:ensure_ran, socket closed=true
+
+== E: error propagation through a barrier ==
+  barrier.wait raised: "tool 1 exploded"
+  siblings that completed: [] (stopped before their 5s sleep ended)
