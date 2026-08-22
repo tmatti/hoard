@@ -116,6 +116,56 @@ Prebuilt rubies from ruby-builder toolcache need to live at /opt/hostedtoolcache
 <ver>/x64 (baked RbConfig prefix) or stdlib requires fail. Symlinked from scratchpad.
 gem install worked through the proxy (pusher 2.1.1 + httpclient 2.9.0).
 
+## 2026-08-22: Ruby-4 rewrite
+User request: assume Ruby 4, strip Ruby 3 material, add Async Ruby, apply their
+unslop skill (fetched from github.com/tmatti/skills, applied to all new prose).
+Plan: build real Ruby 4.0.2 from source (no prebuilt toolcache tarball for 4.x;
+rbenv has a 4.0.2 definition), port every experiment to the Port API, re-measure
+everything, add async experiments (async gem I/O concurrency, async inside a
+ractor, hybrid async + ractor pool), then have Opus rewrite index.html.
+Open questions to settle on the real build:
+- Port receive is creator-only. The 4.0 sketch in the current report has workers
+  receiving from a main-created jobs port. Probably wrong. Test.
+- Does the multi-thread wait deadlock still reproduce with #value on 4.0.2?
+- net/http and the pusher gem inside a ractor on 4.0.2?
+- Does the async gem run inside a ractor?
+
+### Answers (ruby 4.0.2, built from source via rbenv, ~9 min)
+- API surface: take/yield gone, value/join/Port/shareable_proc/shareable_lambda
+  present. Ractor.select over ports returns [port, msg]. Ractor.current can be
+  sent through a port (workers can self-register).
+- Port receive from a non-creator raises "only allowed from the creator Ractor
+  of this port". So the old report's 4.0 sketch WAS wrong. Correct topology:
+  workers push themselves into a ready_port; supervisor receives an idle worker
+  and sends the job to its inbox; results/events come back on ports. One select
+  over all three ports runs the whole thing. 05 rewritten this way: 8 agents,
+  4 workers, 0.55s, all 48 events captured (needed an explicit event-count
+  drain condition; results can arrive before their own completion events).
+- CPU scaling on 4.0.2: 4x fib(32): serial 0.89s, threads 0.93s (0.96x),
+  ractors 0.24s (3.77x), forks 0.23s (3.80x). Ractors now match forks.
+- FIXED on 4.0.2 vs the 3.x/preview findings:
+  * net/http inside a ractor WORKS (HTTP 200 against local server).
+  * Timeout.timeout inside a ractor WORKS.
+  * Multi-thread ractor waits: no deadlock at 3 or 8 concurrent Thread->value.
+- Still broken: pusher gem trigger inside a ractor ("defined with an
+  un-shareable Proc in a different Ractor", httpclient internals). Class-ivar
+  lazy memoization still raises. Globals still main-only. So the publisher
+  stays in the main ractor for gem-compat reasons.
+- async gem (2.44.1) on 4.0.2:
+  * 50 concurrent 300ms calls: threads 0.34s, async tasks 0.32s. Same wall
+    time, but async used one thread for all 50.
+  * Async::Semaphore(8) over 32 calls: 1.21s = four 0.3s waves. The "at most
+    8 tool calls in flight" shape.
+  * async runs INSIDE a ractor (3 concurrent socket calls, OK).
+  * Ractor#value inside an async task blocks the whole reactor thread
+    (0.5s ractor wait + 0.3s I/O ran serially: 0.80s). Not scheduler-aware.
+  * The bridge: ractor owner THREAD + Thread::Queue. Queue#pop parks the
+    fiber, not the thread, so I/O overlaps CPU: 0.30s total. This is the
+    hybrid architecture: async reactor for LLM I/O, ractor pool behind an
+    owner thread for CPU, Queue as the seam.
+- Removed 03b (it explained the Ruby-3 slowdown; a Ruby-4 report doesn't need it).
+- outputs.txt regenerated entirely from 4.0.2 runs.
+
 ## Report plan (index.html)
 Tabbed dashboard (left tabs, dark default, JetBrains Mono, woodsy palette per DESIGN.md):
 1. TL;DR & decision guide  2. Ractor fundamentals (3.x API + 4.0 Ports)
