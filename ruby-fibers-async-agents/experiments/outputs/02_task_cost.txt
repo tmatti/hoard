@@ -1,0 +1,6 @@
+02_task_cost.rb:14: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+ruby 4.0.2, async 2.44.1
+
+5000 of each:
+  threads: created in 2.124s (424.7 us each), RSS grew 134436 KB (26.9 KB each)
+  tasks:   created in 0.137s (27.4 us each), RSS grew 68664 KB (13.7 KB each)

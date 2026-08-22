@@ -1,0 +1,33 @@
+/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/console-1.37.0/lib/console/output/serialized.rb:95: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+{"time":"2026-08-22T16:33:19+00:00","severity":"warn","process_id":1166,"fiber_id":32,"pid":1166,"subject":"Async::Task","object_id":40,"message":"Task may have ended with unhandled exception.","event":{"type":"failure","root":"/home/user/hoard/ruby-fibers-async-agents/experiments","class":"RuntimeError","message":"tool 1 failed","backtrace":["09_pitfalls.rb:123:in 'block (2 levels) in Object#fire_and_forget_tools'","/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/async-2.44.1/lib/async/barrier.rb:63:in 'block in Async::Barrier#async'","/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/async-2.44.1/lib/async/task.rb:225:in 'block in Async::Task#run'","/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/async-2.44.1/lib/async/task.rb:523:in 'block in Async::Task#schedule'"]}}
+ruby 4.0.2, async 2.44.1
+
+== A: CPU starves the reactor ==
+  30M iterations of x += 1 ran on the reactor; worst heartbeat gap 1066ms (target 20ms)
+
+== B: Timeout.timeout vs task.with_timeout ==
+  Timeout.timeout(0.3) around sleep(5): Timeout::Error after 0.30s
+  Timeout.timeout(0.3) around a BLOCKING sleep(1): no error, returned after 1.00s
+  task.with_timeout(0.3) around sleep(5): Async::TimeoutError after 0.30s
+
+== B2: does Timeout.timeout hit an innocent bystander? ==
+  task A (armed the timeout): :a_timed_out
+  task B (innocent CPU work): :b_finished, caught NilClass: nil
+
+== C: fiber-local vs thread-local vs Fiber[] ==
+  in child task:
+    Thread.current[:tenant]              = nil   (fiber-local: child fiber starts empty)
+    Thread.current.thread_variable_get   = "true-thread-local"   (shared by every fiber on the thread)
+    Fiber[:tenant]                       = "fiber-storage"   (inherited by child fibers)
+
+== D: atomicity: single ops fine, lost updates across awaits ==
+  10 tasks x 100 bare increments: 1000/1000 (no preemption between yield points)
+  same, with an await between read and write: 101/1000 (lost updates, no threads involved)
+
+== E: forgetting the wait ==
+  spawned 3 tools, one raised, caller saw nothing (error went to the console logger above)
+  Sync block with a forgotten sleeping child returned after 1.00s: the reactor won't abandon it
+
+== F: deterministic tests: inject the transport ==
+  3 runs, events ["ran a", "ran b", "final"]
+  identical across runs: true, mean duration 0.17ms (no server, no sleeps, no flakes)

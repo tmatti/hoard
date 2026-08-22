@@ -1,0 +1,5 @@
+03_park_proof.rb:56: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+ruby 4.0.2, async 2.44.1
+10 x Net::HTTP (server latency 0.3s): 0.31s total, codes {"200" => 10}
+10 x raw TCPSocket read:               0.31s total, 590 bytes
+heartbeat ticks while requests were in flight: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]

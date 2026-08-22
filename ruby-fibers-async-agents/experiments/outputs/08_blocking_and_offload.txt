@@ -1,0 +1,16 @@
+ruby 4.0.2, async 2.44.1
+
+== A: blocking driver in the reactor ==
+  8 x 50ms blocking queries: 0.40s wall (fully serialized)
+  worst heartbeat gap: 50ms (should be ~20ms)
+
+== B: offload to a thread, park the fiber on Queue#pop ==
+  same 8 queries via offload: 0.05s wall (overlapped)
+  worst heartbeat gap: 20ms
+
+== C1: publisher with batching and backpressure ==
+  producer emitted 60 events, spent 81ms blocked on the full queue (backpressure, nothing dropped)
+  publisher sent 61 events in batches of [10, 10, 10, 10, 10, 10, 1]
+
+== C2: terminal event survives cancelling the run ==
+  run cancelled after 46 of 1000 events; publisher still delivered 47 incl. terminal: true

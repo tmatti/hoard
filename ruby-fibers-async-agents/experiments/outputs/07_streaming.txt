@@ -1,0 +1,8 @@
+ruby 4.0.2, async 2.44.1
+/opt/rbenv/versions/4.0.2/lib/ruby/gems/4.0.0/gems/io-stream-0.14.0/lib/io/stream/buffered.rb:105: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+  single stream: 20 deltas + [DONE]
+  first delta at 0.032s, last at 0.607s (whole-body wait would be ~0.607s with zero output until then)
+  inter-arrival: mean 28.8ms (server interval 30ms)
+
+  three concurrent streams, first 12 arrivals tagged by stream:
+  s0 s1 s0 s2 s0 s1 s2 s0 s1 s0 s2 s1 ... (18 total in 0.24s)
